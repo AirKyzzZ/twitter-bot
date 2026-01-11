@@ -1,0 +1,37 @@
+# Twitter Bot Configuration
+# Copy to ~/.twitter-bot/config.yaml and fill in your values
+
+profile:
+  name: "Your Name"
+  voice_file: "~/.twitter-bot/voice-profile.md"
+
+twitter:
+  api_key: "${TWITTER_API_KEY}"
+  api_secret: "${TWITTER_API_SECRET}"
+  access_token: "${TWITTER_ACCESS_TOKEN}"
+  access_secret: "${TWITTER_ACCESS_SECRET}"
+  bearer_token: "${TWITTER_BEARER_TOKEN}"
+
+sources:
+  rss_feeds:
+    - url: "https://hnrss.org/frontpage"
+      weight: 1.0
+    - url: "https://techcrunch.com/feed/"
+      weight: 0.8
+
+scoring:
+  boost_topics:
+    - "AI"
+    - "Python"
+    - "TypeScript"
+  mute_topics:
+    - "crypto"
+    - "politics"
+
+schedule:
+  tweets_per_day: 30
+  active_hours: "08:00-22:00"
+  timezone: "Europe/Paris"
+
+# LLM Configuration (set via environment variable)
+# gemini_api_key: "${GEMINI_API_KEY}"

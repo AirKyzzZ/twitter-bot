@@ -1,0 +1,116 @@
+# Workflow Status - twitter-bot
+# Generated: 2026-01-11
+# Track: BMad Method (Greenfield)
+
+# This tracks progress through BMM methodology Analysis, Planning, and Solutioning phases.
+# Implementation phase is tracked separately in sprint-status.yaml
+
+# STATUS DEFINITIONS:
+# ==================
+# Initial Status (before completion):
+#   - required: Must be completed to progress
+#   - optional: Can be completed but not required
+#   - recommended: Strongly suggested but not required
+#   - conditional: Required only if certain conditions met (e.g., if_has_ui)
+#
+# Completion Status:
+#   - {file-path}: File created/found (e.g., "docs/product-brief.md")
+#   - skipped: Optional/conditional workflow that was skipped
+
+generated: "2026-01-11"
+project: "twitter-bot"
+project_type: "AI-powered Twitter/X content bot for viral, high-quality tweets at scale"
+selected_track: "bmad-method"
+field_type: "greenfield"
+workflow_path: "method-greenfield.yaml"
+
+workflow_status:
+  # Phase 1: Analysis (Optional Discovery)
+  phase_1_analysis:
+    name: "Analysis (Optional)"
+    optional: true
+    workflows:
+      brainstorm:
+        status: "_bmad-output/analysis/brainstorming-session-2026-01-11.md"
+        agent: "analyst"
+        command: "/bmad:bmm:workflows:brainstorming"
+        note: "Creative exploration and ideation - COMPLETED"
+        
+      research:
+        status: "_bmad-output/planning-artifacts/research/technical-viral-tweet-patterns-research-2026-01-11.md"
+        agent: "analyst"
+        command: "/bmad:bmm:workflows:research"
+        note: "Technical research on viral tweet patterns - COMPLETED"
+        
+      product-brief:
+        status: "_bmad-output/planning-artifacts/product-brief-twitter-bot-2026-01-11.md"
+        agent: "analyst"
+        command: "/bmad:bmm:workflows:create-product-brief"
+        note: "Strategic product planning - COMPLETED"
+
+  # Phase 2: Planning
+  phase_2_planning:
+    name: "Planning"
+    required: true
+    workflows:
+      prd:
+        status: "_bmad-output/planning-artifacts/prd.md"
+        agent: "pm"
+        command: "/bmad:bmm:workflows:prd"
+        output: "Product Requirements Document with FRs and NFRs"
+        completed: "2026-01-11"
+        
+      ux-design:
+        status: "conditional"
+        condition: "if_has_ui"
+        agent: "ux-designer"
+        command: "/bmad:bmm:workflows:create-ux-design"
+        note: "Determined after PRD - user/agent decides if needed"
+
+  # Phase 3: Solutioning
+  phase_3_solutioning:
+    name: "Solutioning"
+    required: true
+    workflows:
+      architecture:
+        status: "required"
+        agent: "architect"
+        command: "/bmad:bmm:workflows:create-architecture"
+        output: "System architecture document"
+        
+      epics-and-stories:
+        status: "required"
+        agent: "pm"
+        command: "/bmad:bmm:workflows:create-epics-and-stories"
+        note: "Break down PRD into implementable epics and stories"
+        
+      test-design:
+        status: "optional"
+        agent: "tea"
+        command: "/bmad:bmm:workflows:testarch-test-design"
+        output: "System-level testability review"
+        
+      implementation-readiness:
+        status: "required"
+        agent: "architect"
+        command: "/bmad:bmm:workflows:check-implementation-readiness"
+        note: "Validates PRD + Architecture + Epics + UX"
+
+  # Phase 4: Implementation
+  phase_4_implementation:
+    name: "Implementation"
+    required: true
+    workflows:
+      sprint-planning:
+        status: "required"
+        agent: "sm"
+        command: "/bmad:bmm:workflows:sprint-planning"
+        note: "Creates sprint plan - subsequent work tracked in sprint-status.yaml"
+
+# Next recommended workflow
+next_workflow:
+  id: "architecture"
+  name: "System Architecture"
+  agent: "architect"
+  command: "/bmad:bmm:workflows:create-architecture"
+
