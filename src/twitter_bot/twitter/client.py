@@ -114,16 +114,53 @@ class TwitterClient:
 
         return {"Authorization": auth_header}
 
+    def upload_media(self, file_path: str) -> str:
+        """Upload media to Twitter (v1.1 API).
+
+        Args:
+            file_path: Path to the image file
+
+        Returns:
+            Media ID string
+
+        Raises:
+            TwitterAPIError: If upload fails
+        """
+        url = "https://upload.twitter.com/1.1/media/upload.json"
+        headers = self._get_oauth1_header("POST", url)
+
+        # httpx handles multipart boundary automatically if we don't set Content-Type
+        if "Content-Type" in headers:
+            del headers["Content-Type"]
+
+        try:
+            with open(file_path, "rb") as f:
+                files = {"media": f}
+                response = self._client.post(url, headers=headers, files=files)
+            
+            if response.status_code != 200:
+                raise TwitterAPIError(
+                    f"Media upload failed: {response.text}",
+                    status_code=response.status_code
+                )
+                
+            return response.json()["media_id_string"]
+        except Exception as e:
+            if isinstance(e, TwitterAPIError):
+                raise
+            raise TwitterAPIError(f"Media upload failed: {e}") from e
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=60),
         reraise=True,
     )
-    def post_tweet(self, text: str) -> Tweet:
+    def post_tweet(self, text: str, media_ids: list[str] | None = None) -> Tweet:
         """Post a tweet.
 
         Args:
             text: Tweet text (max 280 characters)
+            media_ids: Optional list of media IDs to attach
 
         Returns:
             Tweet object with id and text
@@ -138,11 +175,15 @@ class TwitterClient:
         headers = self._get_oauth1_header("POST", url)
         headers["Content-Type"] = "application/json"
 
+        payload = {"text": text}
+        if media_ids:
+            payload["media"] = {"media_ids": media_ids}
+
         try:
             response = self._client.post(
                 url,
                 headers=headers,
-                json={"text": text},
+                json=payload,
             )
         except httpx.HTTPError as e:
             raise TwitterAPIError(f"HTTP error posting tweet: {e}") from e

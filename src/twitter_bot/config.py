@@ -5,10 +5,14 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from twitter_bot.exceptions import ConfigError
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class TwitterConfig(BaseModel):
@@ -68,6 +72,7 @@ class Settings(BaseSettings):
 
     # LLM settings
     gemini_api_key: str = ""
+    openai_api_key: str = ""
 
     # Paths
     data_dir: Path = Path.home() / ".twitter-bot"
@@ -98,7 +103,12 @@ def _interpolate_env_vars(data: Any) -> Any:
 def load_config(config_path: Path | None = None) -> Settings:
     """Load configuration from YAML file with env var interpolation."""
     if config_path is None:
-        config_path = Path.home() / ".twitter-bot" / "config.yaml"
+        # Check current directory first, then home directory
+        local_config = Path("config.yaml")
+        if local_config.exists():
+            config_path = local_config
+        else:
+            config_path = Path.home() / ".twitter-bot" / "config.yaml"
 
     if not config_path.exists():
         # Return defaults if no config file

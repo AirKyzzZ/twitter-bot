@@ -11,7 +11,7 @@ from twitter_bot.generation.provider import GenerationResult, LLMProvider
 class GeminiProvider(LLMProvider):
     """Google Gemini LLM provider."""
 
-    def __init__(self, api_key: str, model: str = "gemini-2.0-flash"):
+    def __init__(self, api_key: str, model: str = "gemini-2.5-flash"):
         if not api_key:
             raise LLMProviderError("Gemini API key is required")
 
@@ -69,7 +69,7 @@ class GeminiProvider(LLMProvider):
                     model=self.model_name,
                     contents=prompt,
                     config=types.GenerateContentConfig(
-                        max_output_tokens=max_tokens,
+                        max_output_tokens=1000,
                         temperature=temp,
                     ),
                 )

@@ -17,7 +17,7 @@ from twitter_bot.exceptions import (
     SourceError,
     TwitterAPIError,
 )
-from twitter_bot.generation import GeminiProvider, TweetGenerator
+from twitter_bot.generation import GeminiProvider, OpenAIProvider, TweetGenerator
 from twitter_bot.scoring import ContentScorer
 from twitter_bot.sources import RSSClient, WebExtractor, YouTubeExtractor
 from twitter_bot.state import StateManager
@@ -62,6 +62,17 @@ def get_config(config_path: Path | None = None) -> Settings:
         raise typer.Exit(EXIT_CONFIG_ERROR) from None
 
 
+def get_llm_provider(settings: Settings):
+    """Get the LLM provider based on available API keys."""
+    if settings.openai_api_key:
+        return OpenAIProvider(settings.openai_api_key)
+    elif settings.gemini_api_key:
+        return GeminiProvider(settings.gemini_api_key)
+    else:
+        console.print("[red]Error:[/red] No LLM API key configured (OPENAI_API_KEY or GEMINI_API_KEY)")
+        raise typer.Exit(EXIT_CONFIG_ERROR)
+
+
 def version_callback(value: bool) -> None:
     """Print version and exit."""
     if value:
@@ -93,38 +104,44 @@ def main(
 
 @app.command()
 def draft(
-    url: Annotated[str, typer.Argument(help="URL to generate tweets from")],
+    url: Annotated[str | None, typer.Argument(help="URL to generate tweets from")] = None,
+    text: Annotated[str | None, typer.Option("--text", "-t", help="Text to generate tweets from")] = None,
     count: Annotated[int, typer.Option("--count", "-n", help="Number of drafts")] = 3,
     config_path: Annotated[Path | None, typer.Option("--config", "-c", help="Config file")] = None,
 ) -> None:
-    """Generate tweet drafts from a URL without posting."""
+    """Generate tweet drafts from a URL or text without posting."""
     settings = get_config(config_path)
 
-    if not settings.gemini_api_key:
-        console.print("[red]Error:[/red] GEMINI_API_KEY not configured")
-        raise typer.Exit(EXIT_CONFIG_ERROR)
+    if not url and not text:
+        console.print("[red]Error:[/red] Please provide either a URL or --text.")
+        raise typer.Exit(EXIT_ERROR)
 
-    console.print(f"[blue]Extracting content from:[/blue] {url}")
+    source_content = ""
+    source_url = url
 
-    # Detect URL type and extract content
-    try:
-        if "youtube.com" in url or "youtu.be" in url:
-            with YouTubeExtractor() as extractor:
-                content = extractor.extract(url)
-                source_content = f"{content.title}\n\n{content.description}"
-        else:
-            with WebExtractor() as extractor:
-                content = extractor.extract(url)
-                desc = content.description or ""
-                source_content = f"{content.title}\n\n{desc}\n\n{content.content}"
-    except SourceError as e:
-        console.print(f"[red]Failed to extract content:[/red] {e}")
-        raise typer.Exit(EXIT_ERROR) from None
+    if url:
+        console.print(f"[blue]Extracting content from:[/blue] {url}")
+        # Detect URL type and extract content
+        try:
+            if "youtube.com" in url or "youtu.be" in url:
+                with YouTubeExtractor() as extractor:
+                    content = extractor.extract(url)
+                    source_content = f"{content.title}\n\n{content.description}"
+            else:
+                with WebExtractor() as extractor:
+                    content = extractor.extract(url)
+                    desc = content.description or ""
+                    source_content = f"{content.title}\n\n{desc}\n\n{content.content}"
+        except SourceError as e:
+            console.print(f"[red]Failed to extract content:[/red] {e}")
+            raise typer.Exit(EXIT_ERROR) from None
+    else:
+        source_content = text
 
     console.print("[blue]Generating drafts...[/blue]")
 
     try:
-        provider = GeminiProvider(settings.gemini_api_key)
+        provider = get_llm_provider(settings)
         voice_profile = None
         if settings.profile.voice_file:
             voice_path = Path(settings.profile.voice_file).expanduser()
@@ -149,32 +166,43 @@ def draft(
 
 @app.command()
 def post(
-    url: Annotated[str, typer.Argument(help="URL to generate and post tweet from")],
+    url: Annotated[str | None, typer.Argument(help="URL to generate and post tweet from")] = None,
+    text: Annotated[str | None, typer.Option("--text", "-t", help="Text to generate and post tweet from")] = None,
+    image: Annotated[Path | None, typer.Option("--image", "-i", help="Path to image file to attach")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Generate but don't post")] = False,
     config_path: Annotated[Path | None, typer.Option("--config", "-c", help="Config file")] = None,
 ) -> None:
-    """Generate and post a tweet from a URL."""
+    """Generate and post a tweet from a URL or text."""
     settings = get_config(config_path)
 
+    if not url and not text:
+        console.print("[red]Error:[/red] Please provide either a URL or --text.")
+        raise typer.Exit(EXIT_ERROR)
+
+    source_content = ""
+    source_url = url
+
     # Generate draft first
-    console.print(f"[blue]Processing:[/blue] {url}")
+    if url:
+        console.print(f"[blue]Processing:[/blue] {url}")
+        try:
+            if "youtube.com" in url or "youtu.be" in url:
+                with YouTubeExtractor() as extractor:
+                    content = extractor.extract(url)
+                    source_content = f"{content.title}\n\n{content.description}"
+            else:
+                with WebExtractor() as extractor:
+                    content = extractor.extract(url)
+                    desc = content.description or ""
+                    source_content = f"{content.title}\n\n{desc}\n\n{content.content}"
+        except SourceError as e:
+            console.print(f"[red]Failed to extract content:[/red] {e}")
+            raise typer.Exit(EXIT_ERROR) from None
+    else:
+        source_content = text
 
     try:
-        if "youtube.com" in url or "youtu.be" in url:
-            with YouTubeExtractor() as extractor:
-                content = extractor.extract(url)
-                source_content = f"{content.title}\n\n{content.description}"
-        else:
-            with WebExtractor() as extractor:
-                content = extractor.extract(url)
-                desc = content.description or ""
-                source_content = f"{content.title}\n\n{desc}\n\n{content.content}"
-    except SourceError as e:
-        console.print(f"[red]Failed to extract content:[/red] {e}")
-        raise typer.Exit(EXIT_ERROR) from None
-
-    try:
-        provider = GeminiProvider(settings.gemini_api_key)
+        provider = get_llm_provider(settings)
         voice_profile = None
         if settings.profile.voice_file:
             voice_path = Path(settings.profile.voice_file).expanduser()
@@ -182,7 +210,7 @@ def post(
                 voice_profile = voice_path.read_text()
 
         generator = TweetGenerator(provider, voice_profile)
-        draft = generator.generate_single(source_content, url)
+        draft = generator.generate_single(source_content, source_url)
     except LLMProviderError as e:
         console.print(f"[red]LLM error:[/red] {e}")
         raise typer.Exit(EXIT_API_ERROR) from None
@@ -203,12 +231,22 @@ def post(
             access_token=settings.twitter.access_token,
             access_secret=settings.twitter.access_secret,
         ) as client:
-            tweet = client.post_tweet(draft.content)
+            media_ids = None
+            if image:
+                if not image.exists():
+                    console.print(f"[red]Image file not found:[/red] {image}")
+                    raise typer.Exit(EXIT_ERROR)
+
+                console.print(f"[blue]Uploading image:[/blue] {image}")
+                media_id = client.upload_media(str(image))
+                media_ids = [media_id]
+
+            tweet = client.post_tweet(draft.content, media_ids=media_ids)
             console.print(f"[green]Posted![/green] Tweet ID: {tweet.id}")
 
             # Record in state
             state_manager = StateManager(settings.state_file)
-            state_manager.record_tweet(tweet.id, draft.content, url)
+            state_manager.record_tweet(tweet.id, draft.content, source_url)
 
     except TwitterAPIError as e:
         console.print(f"[red]Twitter API error:[/red] {e}")
@@ -267,7 +305,7 @@ def run(
 
     # Generate tweet
     try:
-        provider = GeminiProvider(settings.gemini_api_key)
+        provider = get_llm_provider(settings)
         voice_profile = None
         if settings.profile.voice_file:
             voice_path = Path(settings.profile.voice_file).expanduser()
@@ -352,7 +390,7 @@ def daemon(
             if not best:
                 return
 
-            provider = GeminiProvider(settings.gemini_api_key)
+            provider = get_llm_provider(settings)
             voice_profile = None
             if settings.profile.voice_file:
                 voice_path = Path(settings.profile.voice_file).expanduser()
