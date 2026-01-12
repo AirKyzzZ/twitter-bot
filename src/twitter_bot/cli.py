@@ -367,9 +367,12 @@ def run(
     state_manager = StateManager(settings.state_file)
     state = state_manager.load()
 
+    # Get recent titles for similarity check
+    recent_titles = [t.source_title for t in state_manager.get_recent_tweets(20) if t.source_title]
+
     scorable = [(item.title, item.url, item.summary, weight) for item, weight in items]
 
-    best = scorer.select_best(scorable, state.processed_urls)
+    best = scorer.select_best(scorable, state.processed_urls, recent_titles=recent_titles)
 
     if not best:
         console.print("[yellow]No suitable content found after filtering[/yellow]")
@@ -457,12 +460,13 @@ def run(
                     tweets[0].id,
                     " | ".join(draft.thread_parts),  # Store full thread content
                     best.url,
+                    source_title=best.title,
                 )
             else:
                 # Post single tweet
                 tweet = client.post_tweet(draft.content, media_ids=media_ids)
                 console.print(f"\n[green]Posted![/green] Tweet ID: {tweet.id}")
-                state_manager.record_tweet(tweet.id, draft.content, best.url)
+                state_manager.record_tweet(tweet.id, draft.content, best.url, source_title=best.title)
 
     except TwitterAPIError as e:
         console.print(f"[red]Twitter API error:[/red] {e}")
@@ -516,9 +520,12 @@ def daemon(
             state_manager = StateManager(settings.state_file)
             state = state_manager.load()
 
+            # Get recent titles for similarity check
+            recent_titles = [t.source_title for t in state_manager.get_recent_tweets(20) if t.source_title]
+
             scorable = [(item.title, item.url, item.summary, weight) for item, weight in items]
 
-            best = scorer.select_best(scorable, state.processed_urls)
+            best = scorer.select_best(scorable, state.processed_urls, recent_titles=recent_titles)
             if not best:
                 return
 
@@ -562,12 +569,13 @@ def daemon(
                         tweets[0].id,
                         " | ".join(draft.thread_parts),
                         best.url,
+                        source_title=best.title,
                     )
                 else:
                     # Post single tweet
                     tweet = client.post_tweet(draft.content, media_ids=media_ids)
                     logging.info(f"Posted tweet: {tweet.id}")
-                    state_manager.record_tweet(tweet.id, draft.content, best.url)
+                    state_manager.record_tweet(tweet.id, draft.content, best.url, source_title=best.title)
 
             state_manager.update_last_run()
 

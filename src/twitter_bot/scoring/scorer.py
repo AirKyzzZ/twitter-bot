@@ -2,6 +2,7 @@
 
 import re
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 
 
 @dataclass
@@ -124,12 +125,14 @@ class ContentScorer:
         self,
         items: list[tuple[str, str, str, float]],
         processed_urls: set[str] | None = None,
+        recent_titles: list[str] | None = None,
     ) -> ScoredContent | None:
         """Select the best unprocessed content item.
 
         Args:
             items: List of (title, url, content, source_weight) tuples
             processed_urls: Set of already processed URLs to skip
+            recent_titles: List of titles from recently posted tweets to check for similarity
 
         Returns:
             Best ScoredContent or None if all filtered
@@ -138,7 +141,23 @@ class ContentScorer:
         scored = self.score_and_filter(items)
 
         for item in scored:
-            if item.url not in processed:
-                return item
+            if item.url in processed:
+                continue
+
+            # Check similarity with recent titles
+            if recent_titles:
+                is_similar = False
+                for recent_title in recent_titles:
+                    if not recent_title:
+                        continue
+                    # Check title similarity
+                    ratio = SequenceMatcher(None, item.title, recent_title).ratio()
+                    if ratio > 0.6:  # Threshold for similarity
+                        is_similar = True
+                        break
+                if is_similar:
+                    continue
+
+            return item
 
         return None

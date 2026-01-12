@@ -18,6 +18,7 @@ class PostedTweet:
     content_hash: str
     source_url: str | None
     posted_at: str  # ISO format
+    source_title: str | None = None
 
 
 @dataclass
@@ -82,6 +83,7 @@ class StateManager:
                     "content_hash": t.content_hash,
                     "source_url": t.source_url,
                     "posted_at": t.posted_at,
+                    "source_title": t.source_title,
                 }
                 for t in self._state.posted_tweets
             ],
@@ -122,6 +124,7 @@ class StateManager:
         tweet_id: str,
         content: str,
         source_url: str | None = None,
+        source_title: str | None = None,
     ) -> None:
         """Record a posted tweet."""
         state = self.load()
@@ -133,6 +136,7 @@ class StateManager:
             content_hash=content_hash,
             source_url=source_url,
             posted_at=datetime.utcnow().isoformat(),
+            source_title=source_title,
         )
 
         state.posted_tweets.append(posted)
