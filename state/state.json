@@ -55,27 +55,36 @@
       "content_hash": "d5a3fd58cc332b5d",
       "source_url": "https://openai.com/index/genspark",
       "posted_at": "2026-01-12T15:27:51.097179"
+    },
+    {
+      "tweet_id": "2010742803337187537",
+      "content": "Claude Opus 4.5 on Vercel's AI Gateway is a beast for coding tasks. But what if we used it to auto-generate SSI interfaces? Simplify identity management with zero UI overhead. Who's tried this?",
+      "content_hash": "28a7173197a910e2",
+      "source_url": "https://vercel.com/changelog/claude-opus-4-5-now-available-in-vercel-ai-gateway",
+      "posted_at": "2026-01-12T15:56:56.877013"
     }
   ],
   "content_hashes": [
-    "460aaaf753864eb1",
-    "d5a3fd58cc332b5d",
-    "e0d43ded0d7208ff",
-    "dd9abf822908f81c",
+    "2d23921132d72bc5",
+    "28a7173197a910e2",
     "f67373b3e8ff5821",
     "b5cfb94906d565e2",
     "a0c09515654e830c",
-    "2d23921132d72bc5"
+    "d5a3fd58cc332b5d",
+    "460aaaf753864eb1",
+    "e0d43ded0d7208ff",
+    "dd9abf822908f81c"
   ],
   "processed_urls": [
-    "https://huggingface.co/blog/llm-inference-on-edge",
-    "https://vercel.com/blog/ai-sdk-6",
-    "https://dev.to/aaronwu-builds/when-the-gui-disappears-google-ucp-and-the-shift-to-protocol-first-commerce-49pn",
-    "https://huggingface.co/blog/togethercomputer/together-ft",
     "https://huggingface.co/blog/gradio-vton-mcp",
-    "https://openai.com/index/genspark",
     "https://huggingface.co/blog/hf-skills-training",
-    "https://vercel.com/blog/vercel-collaborates-with-openai-for-gpt-5-launch"
+    "https://huggingface.co/blog/llm-inference-on-edge",
+    "https://vercel.com/blog/vercel-collaborates-with-openai-for-gpt-5-launch",
+    "https://vercel.com/blog/ai-sdk-6",
+    "https://vercel.com/changelog/claude-opus-4-5-now-available-in-vercel-ai-gateway",
+    "https://dev.to/aaronwu-builds/when-the-gui-disappears-google-ucp-and-the-shift-to-protocol-first-commerce-49pn",
+    "https://openai.com/index/genspark",
+    "https://huggingface.co/blog/togethercomputer/together-ft"
   ],
-  "last_run": "2026-01-12T15:27:51.097672"
+  "last_run": "2026-01-12T15:56:56.877542"
 }
