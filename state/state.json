@@ -48,25 +48,34 @@
       "content_hash": "e0d43ded0d7208ff",
       "source_url": "https://dev.to/aaronwu-builds/when-the-gui-disappears-google-ucp-and-the-shift-to-protocol-first-commerce-49pn",
       "posted_at": "2026-01-12T14:50:13.125986"
+    },
+    {
+      "tweet_id": "2010735481022246934",
+      "content": "Genspark's $36M ARR in 45 days with no-code agents is wild. But what's crazier? They didn't need to reinvent the wheel. What if we applied this 'build on top' mentality to SSI? Less focus on bespoke auth, more on integrating with what already works.",
+      "content_hash": "d5a3fd58cc332b5d",
+      "source_url": "https://openai.com/index/genspark",
+      "posted_at": "2026-01-12T15:27:51.097179"
     }
   ],
   "content_hashes": [
-    "dd9abf822908f81c",
-    "a0c09515654e830c",
-    "b5cfb94906d565e2",
-    "2d23921132d72bc5",
     "460aaaf753864eb1",
+    "d5a3fd58cc332b5d",
     "e0d43ded0d7208ff",
-    "f67373b3e8ff5821"
+    "dd9abf822908f81c",
+    "f67373b3e8ff5821",
+    "b5cfb94906d565e2",
+    "a0c09515654e830c",
+    "2d23921132d72bc5"
   ],
   "processed_urls": [
     "https://huggingface.co/blog/llm-inference-on-edge",
-    "https://vercel.com/blog/vercel-collaborates-with-openai-for-gpt-5-launch",
-    "https://huggingface.co/blog/hf-skills-training",
-    "https://huggingface.co/blog/gradio-vton-mcp",
     "https://vercel.com/blog/ai-sdk-6",
     "https://dev.to/aaronwu-builds/when-the-gui-disappears-google-ucp-and-the-shift-to-protocol-first-commerce-49pn",
-    "https://huggingface.co/blog/togethercomputer/together-ft"
+    "https://huggingface.co/blog/togethercomputer/together-ft",
+    "https://huggingface.co/blog/gradio-vton-mcp",
+    "https://openai.com/index/genspark",
+    "https://huggingface.co/blog/hf-skills-training",
+    "https://vercel.com/blog/vercel-collaborates-with-openai-for-gpt-5-launch"
   ],
-  "last_run": "2026-01-12T14:50:13.126449"
+  "last_run": "2026-01-12T15:27:51.097672"
 }
