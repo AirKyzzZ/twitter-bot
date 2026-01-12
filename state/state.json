@@ -1,0 +1,18 @@
+{
+  "posted_tweets": [
+    {
+      "tweet_id": "2010651699401425289",
+      "content": "6 months to ML eng. Or you just start building. Pick one.",
+      "content_hash": "b5cfb94906d565e2",
+      "source_url": "https://huggingface.co/blog/hf-skills-training",
+      "posted_at": "2026-01-12T09:54:55.996579"
+    }
+  ],
+  "content_hashes": [
+    "b5cfb94906d565e2"
+  ],
+  "processed_urls": [
+    "https://huggingface.co/blog/hf-skills-training"
+  ],
+  "last_run": "2026-01-12T09:54:55.996850"
+}
