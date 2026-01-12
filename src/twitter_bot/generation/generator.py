@@ -1,6 +1,7 @@
 """Tweet generator using LLM provider and voice profile."""
 
 import random
+from difflib import SequenceMatcher
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -296,6 +297,14 @@ Output ONLY the tweet text (or THREAD: format). No quotes. No explanation.""")
             suggested_image=suggested_image,
         )
 
+    def _is_too_similar(self, content: str, threshold: float = 0.6) -> bool:
+        """Check if content is too similar to recent tweets."""
+        for past_tweet in self.recent_tweets:
+            ratio = SequenceMatcher(None, content, past_tweet).ratio()
+            if ratio > threshold:
+                return True
+        return False
+
     def generate_drafts(
         self,
         content: str,
@@ -316,20 +325,55 @@ Output ONLY the tweet text (or THREAD: format). No quotes. No explanation.""")
         Returns:
             List of TweetDraft objects
         """
-        prompt = self._build_prompt(
-            content,
-            source_url,
-            allow_thread=allow_thread,
-            suggest_image=suggest_image,
-        )
-        results = self.provider.generate_multiple(prompt, n=n, max_tokens=800)
+        valid_drafts = []
+        attempts = 0
+        max_attempts = 3
 
-        drafts = []
-        for result in results:
-            draft = self._parse_response(result.text, source_url)
-            drafts.append(draft)
+        while len(valid_drafts) < n and attempts < max_attempts:
+            # Request more than needed to allow for filtering
+            batch_size = (n - len(valid_drafts)) + 1
+            
+            prompt = self._build_prompt(
+                content,
+                source_url,
+                allow_thread=allow_thread,
+                suggest_image=suggest_image,
+            )
+            
+            # If we are retrying, add a strong hint to be different
+            if attempts > 0:
+                prompt += "\n\nCRITICAL: The previous outputs were too similar to my past tweets. You MUST change the structure and opening hook completely."
 
-        return drafts
+            results = self.provider.generate_multiple(prompt, n=batch_size, max_tokens=800)
+
+            for result in results:
+                draft = self._parse_response(result.text, source_url)
+                
+                # Check for similarity
+                if self._is_too_similar(draft.content):
+                    continue
+                
+                # Check for duplicates within current batch
+                if any(d.content == draft.content for d in valid_drafts):
+                    continue
+                    
+                valid_drafts.append(draft)
+                if len(valid_drafts) >= n:
+                    break
+            
+            attempts += 1
+
+        # If we couldn't generate enough valid drafts, just return what we have
+        # or fill with the last generated ones even if similar (better than nothing)
+        if len(valid_drafts) < n and results:
+            remaining = n - len(valid_drafts)
+            for result in results[:remaining]:
+                draft = self._parse_response(result.text, source_url)
+                # Avoid exact duplicates in list
+                if not any(d.content == draft.content for d in valid_drafts):
+                    valid_drafts.append(draft)
+
+        return valid_drafts[:n]
 
     def generate_single(
         self,

@@ -149,7 +149,7 @@ def draft(
 
     # Get recent tweets for context
     state_manager = StateManager(settings.state_file)
-    recent_tweets = [t.content for t in state_manager.get_recent_tweets(5)]
+    recent_tweets = [t.content for t in state_manager.get_recent_tweets(10)]
 
     try:
         provider = get_llm_provider(settings)
@@ -234,7 +234,11 @@ def post(
             if voice_path.exists():
                 voice_profile = voice_path.read_text()
 
-        generator = TweetGenerator(provider, voice_profile)
+        # Get recent tweets for context
+        state_manager = StateManager(settings.state_file)
+        recent_tweets = [t.content for t in state_manager.get_recent_tweets(10)]
+
+        generator = TweetGenerator(provider, voice_profile, recent_tweets)
         draft = generator.generate_single(source_content, source_url)
     except LLMProviderError as e:
         console.print(f"[red]LLM error:[/red] {e}")
@@ -375,7 +379,7 @@ def run(
     console.print(f"  Score: {best.score:.2f}, Topics: {best.matched_boost_topics}")
 
     # Get recent tweets for context (to avoid repetition)
-    recent_tweets = [t.content for t in state_manager.get_recent_tweets(5)]
+    recent_tweets = [t.content for t in state_manager.get_recent_tweets(10)]
 
     # Generate tweet
     try:
@@ -519,7 +523,7 @@ def daemon(
                 return
 
             # Get recent tweets for context (to avoid repetition)
-            recent_tweets = [t.content for t in state_manager.get_recent_tweets(5)]
+            recent_tweets = [t.content for t in state_manager.get_recent_tweets(10)]
 
             provider = get_llm_provider(settings)
             voice_profile = None
