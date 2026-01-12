@@ -41,23 +41,32 @@
       "content_hash": "2d23921132d72bc5",
       "source_url": "https://vercel.com/blog/ai-sdk-6",
       "posted_at": "2026-01-12T14:07:59.230888"
+    },
+    {
+      "tweet_id": "2010726010375881186",
+      "content": "Universal Commerce Protocol means one thing for devs: Agent Engine Optimization > SEO. Time to expose your data structure, not just your UI. Who's ready to build for machines, not just humans?",
+      "content_hash": "e0d43ded0d7208ff",
+      "source_url": "https://dev.to/aaronwu-builds/when-the-gui-disappears-google-ucp-and-the-shift-to-protocol-first-commerce-49pn",
+      "posted_at": "2026-01-12T14:50:13.125986"
     }
   ],
   "content_hashes": [
+    "dd9abf822908f81c",
     "a0c09515654e830c",
     "b5cfb94906d565e2",
-    "460aaaf753864eb1",
     "2d23921132d72bc5",
-    "f67373b3e8ff5821",
-    "dd9abf822908f81c"
+    "460aaaf753864eb1",
+    "e0d43ded0d7208ff",
+    "f67373b3e8ff5821"
   ],
   "processed_urls": [
-    "https://huggingface.co/blog/togethercomputer/together-ft",
-    "https://huggingface.co/blog/gradio-vton-mcp",
-    "https://vercel.com/blog/vercel-collaborates-with-openai-for-gpt-5-launch",
-    "https://vercel.com/blog/ai-sdk-6",
     "https://huggingface.co/blog/llm-inference-on-edge",
-    "https://huggingface.co/blog/hf-skills-training"
+    "https://vercel.com/blog/vercel-collaborates-with-openai-for-gpt-5-launch",
+    "https://huggingface.co/blog/hf-skills-training",
+    "https://huggingface.co/blog/gradio-vton-mcp",
+    "https://vercel.com/blog/ai-sdk-6",
+    "https://dev.to/aaronwu-builds/when-the-gui-disappears-google-ucp-and-the-shift-to-protocol-first-commerce-49pn",
+    "https://huggingface.co/blog/togethercomputer/together-ft"
   ],
-  "last_run": "2026-01-12T14:07:59.231354"
+  "last_run": "2026-01-12T14:50:13.126449"
 }
