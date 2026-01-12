@@ -169,6 +169,11 @@ scoring:
     - "microservices"
     - "DevOps"
     - "CI/CD"
+    - "software engineering"
+    - "coding"
+    - "programming"
+    - "web design"
+    - "UX/UI"
     # Identity & Web3
     - "SSI"
     - "Self-Sovereign Identity"
