@@ -202,7 +202,7 @@ scoring:
 
 schedule:
   # Twitter free tier: ~50 tweets/day, using 48 to stay safe
-  tweets_per_day: 48
+  tweets_per_day: 52
   active_hours: "07:00-23:00"
   timezone: "Europe/Paris"
 
