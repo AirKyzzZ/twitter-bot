@@ -5,149 +5,175 @@
       "content": "6 months to ML eng. Or you just start building. Pick one.",
       "content_hash": "b5cfb94906d565e2",
       "source_url": "https://huggingface.co/blog/hf-skills-training",
-      "posted_at": "2026-01-12T09:54:55.996579"
+      "posted_at": "2026-01-12T09:54:55.996579",
+      "source_title": null
     },
     {
       "tweet_id": "2010660087199879178",
       "content": "Decentralized AI > centralized BS",
       "content_hash": "f67373b3e8ff5821",
       "source_url": "https://huggingface.co/blog/togethercomputer/together-ft",
-      "posted_at": "2026-01-12T10:28:15.792636"
+      "posted_at": "2026-01-12T10:28:15.792636",
+      "source_title": null
     },
     {
       "tweet_id": "2010674173375287767",
       "content": "Decentralized ID > AI demos",
       "content_hash": "a0c09515654e830c",
       "source_url": "https://huggingface.co/blog/gradio-vton-mcp",
-      "posted_at": "2026-01-12T11:24:14.214123"
+      "posted_at": "2026-01-12T11:24:14.214123",
+      "source_title": null
     },
     {
       "tweet_id": "2010696241248620842",
       "content": "Edge inference is crap. Ship or wait.",
       "content_hash": "460aaaf753864eb1",
       "source_url": "https://huggingface.co/blog/llm-inference-on-edge",
-      "posted_at": "2026-01-12T12:51:55.598595"
+      "posted_at": "2026-01-12T12:51:55.598595",
+      "source_title": null
     },
     {
       "tweet_id": "2010704063017726392",
       "content": "GPT-5 generates polished UIs with clean code. Putain, what if we use it for SSI interfaces? Simplify identity management with auto-generated, secure UIs. Who's tried this?",
       "content_hash": "dd9abf822908f81c",
       "source_url": "https://vercel.com/blog/vercel-collaborates-with-openai-for-gpt-5-launch",
-      "posted_at": "2026-01-12T13:23:00.466526"
+      "posted_at": "2026-01-12T13:23:00.466526",
+      "source_title": null
     },
     {
       "tweet_id": "2010715382370258949",
       "content": "AI SDK 6 is out. But let's be real, a unified API for AI providers is just the start. What I want to see is this tech integrated with SSI, making identity management seamless and secure.",
       "content_hash": "2d23921132d72bc5",
       "source_url": "https://vercel.com/blog/ai-sdk-6",
-      "posted_at": "2026-01-12T14:07:59.230888"
+      "posted_at": "2026-01-12T14:07:59.230888",
+      "source_title": null
     },
     {
       "tweet_id": "2010726010375881186",
       "content": "Universal Commerce Protocol means one thing for devs: Agent Engine Optimization > SEO. Time to expose your data structure, not just your UI. Who's ready to build for machines, not just humans?",
       "content_hash": "e0d43ded0d7208ff",
       "source_url": "https://dev.to/aaronwu-builds/when-the-gui-disappears-google-ucp-and-the-shift-to-protocol-first-commerce-49pn",
-      "posted_at": "2026-01-12T14:50:13.125986"
+      "posted_at": "2026-01-12T14:50:13.125986",
+      "source_title": null
     },
     {
       "tweet_id": "2010735481022246934",
       "content": "Genspark's $36M ARR in 45 days with no-code agents is wild. But what's crazier? They didn't need to reinvent the wheel. What if we applied this 'build on top' mentality to SSI? Less focus on bespoke auth, more on integrating with what already works.",
       "content_hash": "d5a3fd58cc332b5d",
       "source_url": "https://openai.com/index/genspark",
-      "posted_at": "2026-01-12T15:27:51.097179"
+      "posted_at": "2026-01-12T15:27:51.097179",
+      "source_title": null
     },
     {
       "tweet_id": "2010742803337187537",
       "content": "Claude Opus 4.5 on Vercel's AI Gateway is a beast for coding tasks. But what if we used it to auto-generate SSI interfaces? Simplify identity management with zero UI overhead. Who's tried this?",
       "content_hash": "28a7173197a910e2",
       "source_url": "https://vercel.com/changelog/claude-opus-4-5-now-available-in-vercel-ai-gateway",
-      "posted_at": "2026-01-12T15:56:56.877013"
+      "posted_at": "2026-01-12T15:56:56.877013",
+      "source_title": null
     },
     {
       "tweet_id": "2010750907206734148",
       "content": "1. Nhi Nguyen's AI-rebuilt portfolio is a game-changer. But what caught my eye? The 100% AI-architected workflow. Is this the future of dev? | I'm building SSI solutions at Verana and 2060.io, and I see huge potential in AI-driven workflows. Less overhead, more focus on the actual problem. Who's with me? | Time to experiment: can we use AI to simplify SSI integration? Auto-generated code, less errors, more scalability. Let's make it happen.",
       "content_hash": "2668292dcfe469e4",
       "source_url": "https://dev.to/nhi_ng/i-let-an-ai-agent-rebuild-my-portfolio-heres-how-antigravity-gemini-did-it-4fep",
-      "posted_at": "2026-01-12T16:29:09.365008"
+      "posted_at": "2026-01-12T16:29:09.365008",
+      "source_title": null
     },
     {
       "tweet_id": "2010758872676352230",
       "content": "Vercel's AI Gateway just made OpenAI's GPT-OSS-Safeguard-20B accessible with a unified API. But here's the thing: this consistency is what SSI needs. Imagine seamless content moderation for decentralized identities.",
       "content_hash": "735c63b5b131cd05",
       "source_url": "https://vercel.com/changelog/openai-gpt-oss-safeguard-20b-now-available-in-vercel-ai-gateway",
-      "posted_at": "2026-01-12T17:00:48.110665"
+      "posted_at": "2026-01-12T17:00:48.110665",
+      "source_title": null
     },
     {
       "tweet_id": "2010767214299815983",
       "content": "Next.js AI Chatbot 2.0 is out. What caught my eye? Simplified auth setup. No more GitHub OAuth app needed. This is how you onboard devs: less friction, more building.",
       "content_hash": "cd5cc11536fac7df",
       "source_url": "https://vercel.com/changelog/next-js-ai-chatbot-2-0",
-      "posted_at": "2026-01-12T17:33:56.922596"
+      "posted_at": "2026-01-12T17:33:56.922596",
+      "source_title": null
     },
     {
       "tweet_id": "2010776447087190222",
       "content": "You think you're a proficient coder? GPT-5.1 Codex Max just dropped on Vercel's AI Gateway. This isn't just an upgrade - it's a coding revolution. You're either ahead of the curve or getting left behind.",
       "content_hash": "f316bcd8e0f8caff",
       "source_url": "https://vercel.com/changelog/gpt-5-1-codex-max-now-available-on-vercel-ai-gateway",
-      "posted_at": "2026-01-12T18:10:38.178954"
+      "posted_at": "2026-01-12T18:10:38.178954",
+      "source_title": null
     },
     {
       "tweet_id": "2010782615754743833",
       "content": "You think you're a proficient coder? GPT-5.2 models just dropped on Vercel's AI Gateway. This isn't just an upgrade - it's a coding revolution. You're either ahead of the curve or getting left behind. What will you do with this power?",
       "content_hash": "5ed7c30a206b116b",
       "source_url": "https://vercel.com/changelog/gpt-5-2-models-now-available-on-vercel-ai-gateway",
-      "posted_at": "2026-01-12T18:35:08.921629"
+      "posted_at": "2026-01-12T18:35:08.921629",
+      "source_title": null
     },
     {
       "tweet_id": "2010789411928334508",
       "content": "You're about to witness a coding revolution. Vercel's AI Gateway just made OpenAI's GPT-5.1 Codex models accessible. This isn't just an upgrade - it's a new era of coding. You're either ahead of the curve or getting left behind. What will you do with this power?",
       "content_hash": "e5c818f02b4302b0",
       "source_url": "https://vercel.com/changelog/gpt-5-1-codex-models-now-available-in-vercel-ai-gateway",
-      "posted_at": "2026-01-12T19:02:09.264618"
+      "posted_at": "2026-01-12T19:02:09.264618",
+      "source_title": null
     },
     {
       "tweet_id": "2010795498714878228",
       "content": "You're about to witness a massive shift in coding productivity. Claude Haiku 4.5 is now available on Vercel's AI Gateway, offering Sonnet 4's performance at a lower cost and faster speeds. This kills the old way of coding - you're either adapting or getting left behind.",
       "content_hash": "ffe1860a77278056",
       "source_url": "https://vercel.com/changelog/claude-haiku-4-5-now-available-in-vercel-ai-gateway",
-      "posted_at": "2026-01-12T19:26:20.434106"
+      "posted_at": "2026-01-12T19:26:20.434106",
+      "source_title": null
+    },
+    {
+      "tweet_id": "2010801050190520475",
+      "content": "You're about to witness a seismic shift in coding productivity. Claude Sonnet 4.5 on Vercel AI Gateway doesn't just improve code quality - it redefines how you build and ship. This kills the old way of coding. You're either adapting or getting left behind.",
+      "content_hash": "31ff6438883d3a42",
+      "source_url": "https://vercel.com/blog/collaborating-with-anthropic-on-claude-sonnet-4-5",
+      "posted_at": "2026-01-12T19:48:24.033292",
+      "source_title": "Collaborating with Anthropic on Claude Sonnet 4.5 to power intelligent coding agents"
     }
   ],
   "content_hashes": [
-    "460aaaf753864eb1",
-    "2d23921132d72bc5",
-    "5ed7c30a206b116b",
-    "735c63b5b131cd05",
     "f67373b3e8ff5821",
-    "d5a3fd58cc332b5d",
-    "cd5cc11536fac7df",
-    "b5cfb94906d565e2",
+    "a0c09515654e830c",
     "2668292dcfe469e4",
+    "e0d43ded0d7208ff",
+    "b5cfb94906d565e2",
     "28a7173197a910e2",
+    "2d23921132d72bc5",
     "dd9abf822908f81c",
     "ffe1860a77278056",
-    "e0d43ded0d7208ff",
-    "f316bcd8e0f8caff",
     "e5c818f02b4302b0",
-    "a0c09515654e830c"
+    "f316bcd8e0f8caff",
+    "d5a3fd58cc332b5d",
+    "cd5cc11536fac7df",
+    "460aaaf753864eb1",
+    "31ff6438883d3a42",
+    "5ed7c30a206b116b",
+    "735c63b5b131cd05"
   ],
   "processed_urls": [
-    "https://huggingface.co/blog/llm-inference-on-edge",
-    "https://vercel.com/blog/ai-sdk-6",
-    "https://dev.to/nhi_ng/i-let-an-ai-agent-rebuild-my-portfolio-heres-how-antigravity-gemini-did-it-4fep",
-    "https://vercel.com/changelog/openai-gpt-oss-safeguard-20b-now-available-in-vercel-ai-gateway",
-    "https://vercel.com/blog/vercel-collaborates-with-openai-for-gpt-5-launch",
-    "https://vercel.com/changelog/gpt-5-1-codex-models-now-available-in-vercel-ai-gateway",
-    "https://vercel.com/changelog/gpt-5-2-models-now-available-on-vercel-ai-gateway",
-    "https://huggingface.co/blog/togethercomputer/together-ft",
-    "https://dev.to/aaronwu-builds/when-the-gui-disappears-google-ucp-and-the-shift-to-protocol-first-commerce-49pn",
-    "https://openai.com/index/genspark",
-    "https://vercel.com/changelog/claude-opus-4-5-now-available-in-vercel-ai-gateway",
-    "https://huggingface.co/blog/gradio-vton-mcp",
-    "https://vercel.com/changelog/claude-haiku-4-5-now-available-in-vercel-ai-gateway",
     "https://vercel.com/changelog/next-js-ai-chatbot-2-0",
+    "https://huggingface.co/blog/llm-inference-on-edge",
+    "https://vercel.com/changelog/claude-haiku-4-5-now-available-in-vercel-ai-gateway",
+    "https://vercel.com/blog/ai-sdk-6",
+    "https://openai.com/index/genspark",
+    "https://vercel.com/changelog/openai-gpt-oss-safeguard-20b-now-available-in-vercel-ai-gateway",
+    "https://dev.to/aaronwu-builds/when-the-gui-disappears-google-ucp-and-the-shift-to-protocol-first-commerce-49pn",
     "https://vercel.com/changelog/gpt-5-1-codex-max-now-available-on-vercel-ai-gateway",
-    "https://huggingface.co/blog/hf-skills-training"
+    "https://huggingface.co/blog/togethercomputer/together-ft",
+    "https://vercel.com/changelog/gpt-5-2-models-now-available-on-vercel-ai-gateway",
+    "https://vercel.com/changelog/claude-opus-4-5-now-available-in-vercel-ai-gateway",
+    "https://dev.to/nhi_ng/i-let-an-ai-agent-rebuild-my-portfolio-heres-how-antigravity-gemini-did-it-4fep",
+    "https://huggingface.co/blog/gradio-vton-mcp",
+    "https://vercel.com/blog/vercel-collaborates-with-openai-for-gpt-5-launch",
+    "https://vercel.com/blog/collaborating-with-anthropic-on-claude-sonnet-4-5",
+    "https://huggingface.co/blog/hf-skills-training",
+    "https://vercel.com/changelog/gpt-5-1-codex-models-now-available-in-vercel-ai-gateway"
   ],
-  "last_run": "2026-01-12T19:26:20.434677"
+  "last_run": "2026-01-12T19:48:24.033843"
 }
