@@ -1,6 +1,7 @@
 """Tweet generator using LLM provider and voice profile."""
 
 import random
+import re
 from difflib import SequenceMatcher
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -21,18 +22,31 @@ class TweetDraft:
 
 
 # Tweet format types for variety
-TWEET_FORMATS = [
+SHORT_FORMATS = [
     "hot_take",
+    "controversial",
+    "one_liner",
+    "unpopular_opinion",
+    "observation",
+]
+
+THREAD_FORMATS = [
+    "thread",
+    "guide",
+    "deep_dive",
+    "story",
+    "analysis",
+]
+
+STANDARD_FORMATS = [
     "insight",
     "question",
-    "story",
     "tip",
-    "observation",
-    "thread",
-    "controversial",
     "builder_update",
     "behind_scenes",
 ]
+
+TWEET_FORMATS = SHORT_FORMATS + THREAD_FORMATS + STANDARD_FORMATS
 
 
 class TweetGenerator:
@@ -78,10 +92,28 @@ class TweetGenerator:
 {self.voice_profile}
 """)
 
-        # Suggested format for this tweet (for variety)
-        suggested_format = random.choice(TWEET_FORMATS)
-        if not allow_thread and suggested_format == "thread":
-            suggested_format = random.choice([f for f in TWEET_FORMATS if f != "thread"])
+        # Determine Format and Constraints
+        # We want to force variety: Short vs Thread vs Standard
+        if allow_thread:
+            # 30% chance of thread, 35% short, 35% standard
+            roll = random.random()
+            if roll < 0.3:
+                category = "THREAD"
+                suggested_format = random.choice(THREAD_FORMATS)
+            elif roll < 0.65:
+                category = "SHORT"
+                suggested_format = random.choice(SHORT_FORMATS)
+            else:
+                category = "STANDARD"
+                suggested_format = random.choice(STANDARD_FORMATS)
+        else:
+            # No threads allowed
+            if random.random() < 0.5:
+                category = "SHORT"
+                suggested_format = random.choice(SHORT_FORMATS)
+            else:
+                category = "STANDARD"
+                suggested_format = random.choice(STANDARD_FORMATS)
 
         # Maxime-specific voice instructions
         prompt_parts.append(f"""## WHO YOU ARE
@@ -172,7 +204,24 @@ You don't write "updates". You engineer viral assets using these proven framewor
    - Sounding like an ad ("This tool is amazing!"). Critiques > Praise.
    
    ## FORMAT SUGGESTION FOR THIS TWEET: {suggested_format.upper()}
-Use this format as inspiration, but if the content calls for something else, go with that.
+   
+   """)
+
+        # Add constraints based on category
+        if category == "SHORT":
+            prompt_parts.append("""
+**CONSTRAINT: SHORT & PUNCHY**
+- Maximum 140 characters.
+- No filler words. 
+- One single, powerful thought or question.
+- Do NOT use bullet points.
+""")
+        elif category == "THREAD":
+            prompt_parts.append("""
+**CONSTRAINT: EDUCATIONAL THREAD**
+- This must be a **THREAD** (multiple tweets).
+- Go DEEP. Teach something specific.
+- Structure: Hook -> Context -> Step-by-Step -> Outcome.
 """)
 
         # Recent tweets context to avoid repetition
@@ -196,20 +245,17 @@ IMPORTANT: Your new tweet must be DIFFERENT from these. Avoid:
         if source_url:
             prompt_parts.append(f"Source: {source_url}\n")
 
-        # Thread option
-        thread_instruction = ""
-        if allow_thread:
+        # Thread option instructions
+        if category == "THREAD":
             thread_instruction = """
-**THREAD OPTION (VIRAL STRUCTURE)**: 
-If the content is deep (tutorial, big insight, story), write a **5-7 tweet thread**.
-Thread Structure:
+**THREAD STRUCTURE**:
 1. **The Hook**: Bold statement + Benefit. (e.g., "I spent 50 hours on X. Here is what I learned.")
 2. **The Meat**: Break down the concept into 3-4 actionable steps/insights.
 3. **The Cliffhangers**: End middle tweets with "open loops" (e.g., "But here's the catch...", "The best part?").
 4. **The Conclusion**: Summary + Call to Action.
-
-Only use threads for substantial content. Most tweets should be single.
 """
+        else:
+            thread_instruction = "**SINGLE TWEET ONLY.** Do not write a thread."
 
         # Image suggestion
         image_instruction = ""
@@ -235,7 +281,7 @@ Identify the core topic.
 {image_instruction}
 
 Write a tweet (or thread) that:
-- Fits within 280 characters (per tweet)
+- Fits the constraints above ({category} format)
 - Uses the **E.H.A. Framework**
 - Uses **Second-Person ("You")** language
 - Takes a **Strong, Binary Stance**
@@ -257,8 +303,6 @@ Output ONLY the tweet text (or THREAD: format). No quotes. No explanation.""")
         # Check for image suggestion
         suggested_image = None
         if "[IMAGE:" in text:
-            import re
-
             image_match = re.search(r"\[IMAGE:\s*([^\]]+)\]", text)
             if image_match:
                 suggested_image = image_match.group(1).strip()
@@ -267,15 +311,23 @@ Output ONLY the tweet text (or THREAD: format). No quotes. No explanation.""")
         # Check for thread format
         is_thread = False
         thread_parts = []
-
-        if text.upper().startswith("THREAD:"):
+        
+        # Normalize text for detection
+        clean_text = text.strip()
+        
+        if clean_text.upper().startswith("THREAD:"):
             is_thread = True
-            thread_content = text[7:].strip()  # Remove "THREAD:"
+            thread_content = clean_text[7:].strip()
+        elif re.match(r"^1[./)]", clean_text):
+            is_thread = True
+            thread_content = clean_text
+        else:
+            thread_content = clean_text
 
+        if is_thread:
             # Parse numbered tweets
-            import re
-
-            parts = re.split(r"\n\s*\d+\.\s*", thread_content)
+            # Matches "1.", "1/", "1/6", "1 of 6", "1)", "\n2.", etc.
+            parts = re.split(r"(?:^|\n)\s*\d+\s*(?:[./)]|of|/)\s*(?:\d+\s*)?", thread_content)
             thread_parts = [p.strip() for p in parts if p.strip()]
 
             # Validate each part is within limits
@@ -316,8 +368,8 @@ Output ONLY the tweet text (or THREAD: format). No quotes. No explanation.""")
         """Generate multiple tweet drafts from content.
 
         Args:
-            content: Source content to transform into tweets
-            source_url: Optional URL of the source
+            content: Source content OR Topic/Concept
+            source_url: Optional URL of the source (None implies topic-based generation)
             n: Number of drafts to generate
             allow_thread: Whether to allow thread generation
             suggest_image: Whether to ask for image suggestions
@@ -391,3 +443,17 @@ Output ONLY the tweet text (or THREAD: format). No quotes. No explanation.""")
             suggest_image=suggest_image,
         )
         return drafts[0] if drafts else TweetDraft(content="")
+
+    def generate_from_topic(
+        self,
+        topic: str,
+        allow_thread: bool = True,
+        suggest_image: bool = True,
+    ) -> TweetDraft:
+        """Generate a tweet based on a general topic (no specific source)."""
+        return self.generate_single(
+            content=topic,
+            source_url=None,
+            allow_thread=allow_thread,
+            suggest_image=suggest_image,
+        )

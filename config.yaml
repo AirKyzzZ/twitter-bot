@@ -12,133 +12,133 @@ twitter:
   access_secret: "${TWITTER_ACCESS_SECRET}"
   bearer_token: "${TWITTER_BEARER_TOKEN}"
 
-sources:
-  rss_feeds:
-    # ========== AI & Machine Learning ==========
-    - url: "https://news.ycombinator.com/rss"
-      weight: 1.0
-      category: "tech"
-    - url: "https://openai.com/news/rss.xml"
-      weight: 1.0
-      category: "ai"
-    - url: "https://blog.google/innovation-and-ai/technology/ai/rss/"
-      weight: 0.9
-      category: "ai"
-    - url: "https://deepmind.google/blog/rss.xml"
-      weight: 0.9
-      category: "ai"
-    - url: "https://huggingface.co/blog/feed.xml"
-      weight: 0.95
-      category: "ai"
-    - url: "https://lilianweng.github.io/index.xml"
-      weight: 0.85
-      category: "ai_research"
-    # - url: "https://www.anthropic.com/news/feed" (404)
-    #   weight: 1.0
-    #   category: "ai"
-
-    # ========== Tech & Development ==========
-    # ========== Tech & Development (Maxime's Favorites) ==========
-    - url: "https://vercel.com/atom"
-      weight: 1.0
-      category: "web_dev"
-    - url: "https://react.dev/feed.xml"
-      weight: 1.0
-      category: "web_dev"
-    - url: "https://overreacted.io/rss.xml"
-      weight: 0.95
-      category: "web_dev"
-    - url: "https://devblogs.microsoft.com/typescript/feed/"
-      weight: 0.95
-      category: "dev"
-    - url: "https://techcrunch.com/feed/"
-      weight: 0.6
-      category: "tech"
-    - url: "https://www.wired.com/feed/rss"
-      weight: 0.6
-      category: "tech"
-    - url: "https://arstechnica.com/feed/"
-      weight: 0.6
-      category: "tech"
-    - url: "https://dev.to/feed"
-      weight: 0.8
-      category: "dev"
-    - url: "https://github.blog/feed/"
-      weight: 0.85
-      category: "dev"
-
-    # ========== Web3 & Blockchain ==========
-    # ========== Web3 & Identity (SSI) ==========
-    - url: "https://identity.foundation/blog/feed.xml"
-      weight: 1.0
-      category: "ssi"
-    - url: "https://www.dock.io/feed"
-      weight: 0.95
-      category: "ssi"
-    - url: "https://www.w3.org/blog/topics/identity/feed/"
-      weight: 0.9
-      category: "ssi"
-    - url: "https://www.coindesk.com/arc/outboundfeeds/rss/"
-      weight: 0.6
-      category: "web3"
-    - url: "https://blog.ethereum.org/feed.xml"
-      weight: 0.8
-      category: "web3"
-    - url: "https://a16zcrypto.com/feed/"
-      weight: 0.75
-      category: "web3"
-
-    # ========== Science & Research ==========
-    - url: "https://www.nature.com/nature.rss"
-      weight: 0.8
-      category: "science"
-    - url: "https://arxiv.org/rss/cs.AI"
-      weight: 0.9
-      category: "ai_research"
-    - url: "https://arxiv.org/rss/cs.LG"
-      weight: 0.9
-      category: "ml_research"
-    - url: "https://www.quantamagazine.org/feed/"
-      weight: 0.85
-      category: "science"
-    - url: "https://www.sciencedaily.com/rss/computers_math/artificial_intelligence.xml"
-      weight: 0.7
-      category: "ai"
-
-    # ========== Design & Creative ==========
-    # ========== Indie Hacking & Building ==========
-    - url: "https://www.indiehackers.com/feed"
-      weight: 1.0
-      category: "indie"
-    - url: "https://world.hey.com/dhh/feed.atom"
-      weight: 0.9
-      category: "indie"
-    - url: "https://thebootstrappedfounder.com/feed/"
-      weight: 0.95
-      category: "indie"
-    - url: "https://www.smashingmagazine.com/feed/"
-      weight: 0.7
-      category: "design"
-    - url: "https://uxdesign.cc/feed"
-      weight: 0.7
-      category: "ux"
-
-    # ========== Business & Finance ==========
-    - url: "https://feeds.a16z.com/a16z"
-      weight: 0.9
-      category: "vc"
-    - url: "https://www.sequoiacap.com/feed/"
-      weight: 0.85
-      category: "vc"
-    - url: "https://paulgraham.com/rss.html"
-      weight: 0.95
-      category: "startups"
-    - url: "https://stratechery.com/feed/"
-      weight: 0.9
-      category: "business"
-    - url: "https://www.bloomberg.com/technology/feed"
-      weight: 0.75
-      category: "business"
+# sources:
+#   rss_feeds:
+#     # ========== AI & Machine Learning ==========
+#     - url: "https://news.ycombinator.com/rss"
+#       weight: 1.0
+#       category: "tech"
+#     - url: "https://openai.com/news/rss.xml"
+#       weight: 1.0
+#       category: "ai"
+#     - url: "https://blog.google/innovation-and-ai/technology/ai/rss/"
+#       weight: 0.9
+#       category: "ai"
+#     - url: "https://deepmind.google/blog/rss.xml"
+#       weight: 0.9
+#       category: "ai"
+#     - url: "https://huggingface.co/blog/feed.xml"
+#       weight: 0.95
+#       category: "ai"
+#     - url: "https://lilianweng.github.io/index.xml"
+#       weight: 0.85
+#       category: "ai_research"
+#     # - url: "https://www.anthropic.com/news/feed" (404)
+#     #   weight: 1.0
+#     #   category: "ai"
+#
+#     # ========== Tech & Development ==========
+#     # ========== Tech & Development (Maxime's Favorites) ==========
+#     - url: "https://vercel.com/atom"
+#       weight: 1.0
+#       category: "web_dev"
+#     - url: "https://react.dev/feed.xml"
+#       weight: 1.0
+#       category: "web_dev"
+#     - url: "https://overreacted.io/rss.xml"
+#       weight: 0.95
+#       category: "web_dev"
+#     - url: "https://devblogs.microsoft.com/typescript/feed/"
+#       weight: 0.95
+#       category: "dev"
+#     - url: "https://techcrunch.com/feed/"
+#       weight: 0.6
+#       category: "tech"
+#     - url: "https://www.wired.com/feed/rss"
+#       weight: 0.6
+#       category: "tech"
+#     - url: "https://arstechnica.com/feed/"
+#       weight: 0.6
+#       category: "tech"
+#     - url: "https://dev.to/feed"
+#       weight: 0.8
+#       category: "dev"
+#     - url: "https://github.blog/feed/"
+#       weight: 0.85
+#       category: "dev"
+#
+#     # ========== Web3 & Blockchain ==========
+#     # ========== Web3 & Identity (SSI) ==========
+#     - url: "https://identity.foundation/blog/feed.xml"
+#       weight: 1.0
+#       category: "ssi"
+#     - url: "https://www.dock.io/feed"
+#       weight: 0.95
+#       category: "ssi"
+#     - url: "https://www.w3.org/blog/topics/identity/feed/"
+#       weight: 0.9
+#       category: "ssi"
+#     - url: "https://www.coindesk.com/arc/outboundfeeds/rss/"
+#       weight: 0.6
+#       category: "web3"
+#     - url: "https://blog.ethereum.org/feed.xml"
+#       weight: 0.8
+#       category: "web3"
+#     - url: "https://a16zcrypto.com/feed/"
+#       weight: 0.75
+#       category: "web3"
+#
+#     # ========== Science & Research ==========
+#     - url: "https://www.nature.com/nature.rss"
+#       weight: 0.8
+#       category: "science"
+#     - url: "https://arxiv.org/rss/cs.AI"
+#       weight: 0.9
+#       category: "ai_research"
+#     - url: "https://arxiv.org/rss/cs.LG"
+#       weight: 0.9
+#       category: "ml_research"
+#     - url: "https://www.quantamagazine.org/feed/"
+#       weight: 0.85
+#       category: "science"
+#     - url: "https://www.sciencedaily.com/rss/computers_math/artificial_intelligence.xml"
+#       weight: 0.7
+#       category: "ai"
+#
+#     # ========== Design & Creative ==========
+#     # ========== Indie Hacking & Building ==========
+#     - url: "https://www.indiehackers.com/feed"
+#       weight: 1.0
+#       category: "indie"
+#     - url: "https://world.hey.com/dhh/feed.atom"
+#       weight: 0.9
+#       category: "indie"
+#     - url: "https://thebootstrappedfounder.com/feed/"
+#       weight: 0.95
+#       category: "indie"
+#     - url: "https://www.smashingmagazine.com/feed/"
+#       weight: 0.7
+#       category: "design"
+#     - url: "https://uxdesign.cc/feed"
+#       weight: 0.7
+#       category: "ux"
+#
+#     # ========== Business & Finance ==========
+#     - url: "https://feeds.a16z.com/a16z"
+#       weight: 0.9
+#       category: "vc"
+#     - url: "https://www.sequoiacap.com/feed/"
+#       weight: 0.85
+#       category: "vc"
+#     - url: "https://paulgraham.com/rss.html"
+#       weight: 0.95
+#       category: "startups"
+#     - url: "https://stratechery.com/feed/"
+#       weight: 0.9
+#       category: "business"
+#     - url: "https://www.bloomberg.com/technology/feed"
+#       weight: 0.75
+#       category: "business"
 
 scoring:
   boost_topics:

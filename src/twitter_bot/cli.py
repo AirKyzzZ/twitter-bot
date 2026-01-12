@@ -341,45 +341,18 @@ def run(
 
     console.print("[blue]Starting autonomous cycle...[/blue]")
 
-    # Fetch RSS feeds
-    if not settings.sources:
-        console.print("[yellow]No RSS sources configured[/yellow]")
-        raise typer.Exit(EXIT_NO_CONTENT)
+    # Topic-based Generation (Generalist Mode)
+    import random
+    
+    if not settings.scoring.boost_topics:
+        console.print("[red]Error:[/red] No boost_topics configured in config.yaml")
+        raise typer.Exit(EXIT_CONFIG_ERROR)
 
-    feeds = [(s.url, s.weight) for s in settings.sources]
-
-    with RSSClient() as rss:
-        console.print(f"[blue]Fetching {len(feeds)} feeds...[/blue]")
-        items = rss.fetch_multiple(feeds)
-
-    if not items:
-        console.print("[yellow]No items fetched from feeds[/yellow]")
-        raise typer.Exit(EXIT_NO_CONTENT)
-
-    console.print(f"[green]Fetched {len(items)} items[/green]")
-
-    # Score and select best
-    scorer = ContentScorer(
-        boost_topics=settings.scoring.boost_topics,
-        mute_topics=settings.scoring.mute_topics,
-    )
+    topic = random.choice(settings.scoring.boost_topics)
+    console.print(f"[green]Selected Topic:[/green] {topic}")
 
     state_manager = StateManager(settings.state_file)
     state = state_manager.load()
-
-    # Get recent titles for similarity check
-    recent_titles = [t.source_title for t in state_manager.get_recent_tweets(20) if t.source_title]
-
-    scorable = [(item.title, item.url, item.summary, weight) for item, weight in items]
-
-    best = scorer.select_best(scorable, state.processed_urls, recent_titles=recent_titles)
-
-    if not best:
-        console.print("[yellow]No suitable content found after filtering[/yellow]")
-        raise typer.Exit(EXIT_NO_CONTENT)
-
-    console.print(f"[green]Selected:[/green] {best.title[:60]}...")
-    console.print(f"  Score: {best.score:.2f}, Topics: {best.matched_boost_topics}")
 
     # Get recent tweets for context (to avoid repetition)
     recent_tweets = [t.content for t in state_manager.get_recent_tweets(10)]
@@ -394,7 +367,7 @@ def run(
                 voice_profile = voice_path.read_text()
 
         generator = TweetGenerator(provider, voice_profile, recent_tweets)
-        draft = generator.generate_single(best.content, best.url)
+        draft = generator.generate_from_topic(topic)
     except LLMProviderError as e:
         console.print(f"[red]LLM error:[/red] {e}")
         raise typer.Exit(EXIT_API_ERROR) from None
@@ -412,15 +385,12 @@ def run(
 
     if dry_run:
         console.print("\n[yellow]Dry run - not posting[/yellow]")
-        state_manager.mark_url_processed(best.url)
         return
 
     # Handle image attachment
     media_ids = None
     if images_dir and images_dir.exists() and draft.suggested_image:
         # Try to find a matching image from the directory
-        import random
-
         image_files = list(images_dir.glob("*.jpg")) + list(images_dir.glob("*.png"))
         if image_files:
             # For now, randomly select an image when one is suggested
@@ -459,14 +429,19 @@ def run(
                 state_manager.record_tweet(
                     tweets[0].id,
                     " | ".join(draft.thread_parts),  # Store full thread content
-                    best.url,
-                    source_title=best.title,
+                    None, # No source URL
+                    source_title=f"Topic: {topic}",
                 )
             else:
                 # Post single tweet
                 tweet = client.post_tweet(draft.content, media_ids=media_ids)
                 console.print(f"\n[green]Posted![/green] Tweet ID: {tweet.id}")
-                state_manager.record_tweet(tweet.id, draft.content, best.url, source_title=best.title)
+                state_manager.record_tweet(
+                    tweet.id, 
+                    draft.content, 
+                    None, # No source URL
+                    source_title=f"Topic: {topic}"
+                )
 
     except TwitterAPIError as e:
         console.print(f"[red]Twitter API error:[/red] {e}")
@@ -498,38 +473,19 @@ def daemon(
         """Run a single posting cycle."""
         import random
 
-        # This calls the same logic as the 'run' command
+        # Topic-based Generation (Generalist Mode)
         try:
-            # Inline the run logic here for the daemon
-            if not settings.sources:
+            if not settings.scoring.boost_topics:
+                logging.error("No boost_topics configured")
                 return
 
-            feeds = [(s.url, s.weight) for s in settings.sources]
-
-            with RSSClient() as rss:
-                items = rss.fetch_multiple(feeds)
-
-            if not items:
-                return
-
-            scorer = ContentScorer(
-                boost_topics=settings.scoring.boost_topics,
-                mute_topics=settings.scoring.mute_topics,
-            )
+            topic = random.choice(settings.scoring.boost_topics)
+            logging.info(f"Selected Topic: {topic}")
 
             state_manager = StateManager(settings.state_file)
-            state = state_manager.load()
+            state = state_manager.load() # Load latest state
 
-            # Get recent titles for similarity check
-            recent_titles = [t.source_title for t in state_manager.get_recent_tweets(20) if t.source_title]
-
-            scorable = [(item.title, item.url, item.summary, weight) for item, weight in items]
-
-            best = scorer.select_best(scorable, state.processed_urls, recent_titles=recent_titles)
-            if not best:
-                return
-
-            # Get recent tweets for context (to avoid repetition)
+            # Get recent tweets for context
             recent_tweets = [t.content for t in state_manager.get_recent_tweets(10)]
 
             provider = get_llm_provider(settings)
@@ -540,7 +496,7 @@ def daemon(
                     voice_profile = voice_path.read_text()
 
             generator = TweetGenerator(provider, voice_profile, recent_tweets)
-            draft = generator.generate_single(best.content, best.url)
+            draft = generator.generate_from_topic(topic)
 
             with TwitterClient(
                 api_key=settings.twitter.api_key,
@@ -568,14 +524,19 @@ def daemon(
                     state_manager.record_tweet(
                         tweets[0].id,
                         " | ".join(draft.thread_parts),
-                        best.url,
-                        source_title=best.title,
+                        None, # No source URL
+                        source_title=f"Topic: {topic}",
                     )
                 else:
                     # Post single tweet
                     tweet = client.post_tweet(draft.content, media_ids=media_ids)
                     logging.info(f"Posted tweet: {tweet.id}")
-                    state_manager.record_tweet(tweet.id, draft.content, best.url, source_title=best.title)
+                    state_manager.record_tweet(
+                        tweet.id, 
+                        draft.content, 
+                        None, # No source URL
+                        source_title=f"Topic: {topic}"
+                    )
 
             state_manager.update_last_run()
 
@@ -721,51 +682,47 @@ def dry_run_cmd(
 
     console.print(f"[blue]Previewing next {count} planned tweets...[/blue]\n")
 
-    if not settings.sources:
-        console.print("[yellow]No RSS sources configured[/yellow]")
-        raise typer.Exit(EXIT_NO_CONTENT)
+    if not settings.scoring.boost_topics:
+        console.print("[red]Error:[/red] No boost_topics configured")
+        raise typer.Exit(EXIT_CONFIG_ERROR)
 
-    feeds = [(s.url, s.weight) for s in settings.sources]
-
-    with RSSClient() as rss:
-        items = rss.fetch_multiple(feeds)
-
-    if not items:
-        console.print("[yellow]No items fetched[/yellow]")
-        raise typer.Exit(EXIT_NO_CONTENT)
-
-    scorer = ContentScorer(
-        boost_topics=settings.scoring.boost_topics,
-        mute_topics=settings.scoring.mute_topics,
-    )
-
+    # Initialize generator
     state_manager = StateManager(settings.state_file)
-    state = state_manager.load()
+    recent_tweets = [t.content for t in state_manager.get_recent_tweets(10)]
+    
+    try:
+        provider = get_llm_provider(settings)
+        voice_profile = None
+        if settings.profile.voice_file:
+            voice_path = Path(settings.profile.voice_file).expanduser()
+            if voice_path.exists():
+                voice_profile = voice_path.read_text()
+        
+        generator = TweetGenerator(provider, voice_profile, recent_tweets)
+    except LLMProviderError as e:
+        console.print(f"[red]LLM error:[/red] {e}")
+        raise typer.Exit(EXIT_API_ERROR) from None
 
-    scorable = [(item.title, item.url, item.summary, weight) for item, weight in items]
+    import random
 
-    scored = scorer.score_and_filter(scorable)
-    unprocessed = [s for s in scored if s.url not in state.processed_urls][:count]
+    for i in range(count):
+        topic = random.choice(settings.scoring.boost_topics)
+        console.print(f"[bold cyan]Draft {i+1}/{count} - Topic: {topic}[/bold cyan]")
+        
+        draft = generator.generate_from_topic(topic)
+        
+        if draft.is_thread:
+            console.print(f"[green]Thread ({len(draft.thread_parts)} tweets):[/green]")
+            for j, part in enumerate(draft.thread_parts, 1):
+                console.print(f"  {j}. {part}")
+        else:
+            console.print(f"[green]Tweet:[/green] {draft.content}")
+            
+        if draft.suggested_image:
+            console.print(f"[blue]Image suggestion:[/blue] {draft.suggested_image}")
+            
+        console.print()
 
-    if not unprocessed:
-        console.print("[yellow]No unprocessed content available[/yellow]")
-        raise typer.Exit(EXIT_NO_CONTENT)
-
-    table = Table(title=f"Next {len(unprocessed)} Planned Tweets")
-    table.add_column("#", style="dim")
-    table.add_column("Score", justify="right")
-    table.add_column("Title")
-    table.add_column("Topics")
-
-    for i, item in enumerate(unprocessed, 1):
-        table.add_row(
-            str(i),
-            f"{item.score:.2f}",
-            item.title[:50] + "..." if len(item.title) > 50 else item.title,
-            ", ".join(item.matched_boost_topics) or "-",
-        )
-
-    console.print(table)
 
 
 if __name__ == "__main__":
