@@ -13,15 +13,24 @@
       "content_hash": "f67373b3e8ff5821",
       "source_url": "https://huggingface.co/blog/togethercomputer/together-ft",
       "posted_at": "2026-01-12T10:28:15.792636"
+    },
+    {
+      "tweet_id": "2010674173375287767",
+      "content": "Decentralized ID > AI demos",
+      "content_hash": "a0c09515654e830c",
+      "source_url": "https://huggingface.co/blog/gradio-vton-mcp",
+      "posted_at": "2026-01-12T11:24:14.214123"
     }
   ],
   "content_hashes": [
     "b5cfb94906d565e2",
+    "a0c09515654e830c",
     "f67373b3e8ff5821"
   ],
   "processed_urls": [
+    "https://huggingface.co/blog/gradio-vton-mcp",
     "https://huggingface.co/blog/hf-skills-training",
     "https://huggingface.co/blog/togethercomputer/together-ft"
   ],
-  "last_run": "2026-01-12T10:28:15.793096"
+  "last_run": "2026-01-12T11:24:14.214534"
 }
