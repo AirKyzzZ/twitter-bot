@@ -1,0 +1,162 @@
+# Twitter Bot Configuration - Personalized for Maxime
+# Created: 2026-01-11
+
+profile:
+  name: "Maxime"
+  voice_file: "~/.twitter-bot/voice-profile.md"
+
+twitter:
+  api_key: "${TWITTER_API_KEY}"
+  api_secret: "${TWITTER_API_SECRET}"
+  access_token: "${TWITTER_ACCESS_TOKEN}"
+  access_secret: "${TWITTER_ACCESS_SECRET}"
+  bearer_token: "${TWITTER_BEARER_TOKEN}"
+
+sources:
+  rss_feeds:
+    # ========== AI & Machine Learning ==========
+    - url: "https://news.ycombinator.com/rss"
+      weight: 1.0
+      category: "tech"
+    - url: "https://openai.com/blog/rss.xml"
+      weight: 1.0
+      category: "ai"
+    - url: "https://blog.google/technology/ai/rss/"
+      weight: 0.9
+      category: "ai"
+    - url: "https://www.deepmind.com/blog/rss.xml"
+      weight: 0.9
+      category: "ai"
+    - url: "https://huggingface.co/blog/feed.xml"
+      weight: 0.95
+      category: "ai"
+    - url: "https://lilianweng.github.io/index.xml"
+      weight: 0.85
+      category: "ai_research"
+    - url: "https://www.anthropic.com/rss.xml"
+      weight: 1.0
+      category: "ai"
+
+    # ========== Tech & Development ==========
+    - url: "https://techcrunch.com/feed/"
+      weight: 0.8
+      category: "tech"
+    - url: "https://www.wired.com/feed/rss"
+      weight: 0.75
+      category: "tech"
+    - url: "https://arstechnica.com/feed/"
+      weight: 0.8
+      category: "tech"
+    - url: "https://dev.to/feed"
+      weight: 0.7
+      category: "dev"
+    - url: "https://css-tricks.com/feed/"
+      weight: 0.7
+      category: "web_dev"
+    - url: "https://blog.cloudflare.com/rss/"
+      weight: 0.8
+      category: "tech"
+    - url: "https://github.blog/feed/"
+      weight: 0.85
+      category: "dev"
+
+    # ========== Web3 & Blockchain ==========
+    - url: "https://www.coindesk.com/arc/outboundfeeds/rss/"
+      weight: 0.7
+      category: "web3"
+    - url: "https://decrypt.co/feed"
+      weight: 0.7
+      category: "web3"
+    - url: "https://blog.ethereum.org/feed.xml"
+      weight: 0.8
+      category: "web3"
+    - url: "https://a16zcrypto.com/feed/"
+      weight: 0.75
+      category: "web3"
+
+    # ========== Science & Research ==========
+    - url: "https://www.nature.com/nature.rss"
+      weight: 0.8
+      category: "science"
+    - url: "https://arxiv.org/rss/cs.AI"
+      weight: 0.9
+      category: "ai_research"
+    - url: "https://arxiv.org/rss/cs.LG"
+      weight: 0.9
+      category: "ml_research"
+    - url: "https://www.quantamagazine.org/feed/"
+      weight: 0.85
+      category: "science"
+    - url: "https://www.sciencedaily.com/rss/computers_math/artificial_intelligence.xml"
+      weight: 0.7
+      category: "ai"
+
+    # ========== Design & Creative ==========
+    - url: "https://www.smashingmagazine.com/feed/"
+      weight: 0.75
+      category: "design"
+    - url: "https://alistapart.com/main/feed/"
+      weight: 0.7
+      category: "design"
+    - url: "https://uxdesign.cc/feed"
+      weight: 0.75
+      category: "ux"
+    - url: "https://www.nngroup.com/feed/rss/"
+      weight: 0.8
+      category: "ux"
+    - url: "https://dribbble.com/stories.rss"
+      weight: 0.65
+      category: "design"
+
+    # ========== Business & Finance ==========
+    - url: "https://feeds.a16z.com/a16z"
+      weight: 0.9
+      category: "vc"
+    - url: "https://www.sequoiacap.com/feed/"
+      weight: 0.85
+      category: "vc"
+    - url: "https://paulgraham.com/rss.html"
+      weight: 0.95
+      category: "startups"
+    - url: "https://stratechery.com/feed/"
+      weight: 0.9
+      category: "business"
+    - url: "https://www.bloomberg.com/technology/feed"
+      weight: 0.75
+      category: "business"
+
+scoring:
+  boost_topics:
+    - "AI"
+    - "machine learning"
+    - "LLM"
+    - "GPT"
+    - "Claude"
+    - "neural network"
+    - "deep learning"
+    - "JavaScript"
+    - "TypeScript"
+    - "React"
+    - "Node.js"
+    - "Python"
+    - "web development"
+    - "frontend"
+    - "blockchain"
+    - "Ethereum"
+    - "DeFi"
+    - "smart contracts"
+  mute_topics:
+    - "politics"
+    - "celebrity"
+    - "sports"
+    - "meme coins"
+    - "NFT scams"
+
+schedule:
+  tweets_per_day: 30
+  active_hours: "08:00-22:00"
+  timezone: "Europe/Paris"
+
+# LLM Configuration
+gemini_api_key: "${GEMINI_API_KEY}"
+openai_api_key: "${OPENAI_API_KEY}"
