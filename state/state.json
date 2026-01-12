@@ -90,37 +90,46 @@
       "content_hash": "f316bcd8e0f8caff",
       "source_url": "https://vercel.com/changelog/gpt-5-1-codex-max-now-available-on-vercel-ai-gateway",
       "posted_at": "2026-01-12T18:10:38.178954"
+    },
+    {
+      "tweet_id": "2010782615754743833",
+      "content": "You think you're a proficient coder? GPT-5.2 models just dropped on Vercel's AI Gateway. This isn't just an upgrade - it's a coding revolution. You're either ahead of the curve or getting left behind. What will you do with this power?",
+      "content_hash": "5ed7c30a206b116b",
+      "source_url": "https://vercel.com/changelog/gpt-5-2-models-now-available-on-vercel-ai-gateway",
+      "posted_at": "2026-01-12T18:35:08.921629"
     }
   ],
   "content_hashes": [
-    "cd5cc11536fac7df",
-    "28a7173197a910e2",
-    "a0c09515654e830c",
-    "2668292dcfe469e4",
-    "2d23921132d72bc5",
+    "dd9abf822908f81c",
+    "f316bcd8e0f8caff",
+    "5ed7c30a206b116b",
     "f67373b3e8ff5821",
+    "2668292dcfe469e4",
+    "28a7173197a910e2",
+    "cd5cc11536fac7df",
     "460aaaf753864eb1",
     "735c63b5b131cd05",
-    "d5a3fd58cc332b5d",
     "e0d43ded0d7208ff",
     "b5cfb94906d565e2",
-    "f316bcd8e0f8caff",
-    "dd9abf822908f81c"
+    "a0c09515654e830c",
+    "d5a3fd58cc332b5d",
+    "2d23921132d72bc5"
   ],
   "processed_urls": [
-    "https://vercel.com/changelog/claude-opus-4-5-now-available-in-vercel-ai-gateway",
-    "https://vercel.com/changelog/gpt-5-1-codex-max-now-available-on-vercel-ai-gateway",
-    "https://vercel.com/changelog/openai-gpt-oss-safeguard-20b-now-available-in-vercel-ai-gateway",
-    "https://vercel.com/blog/ai-sdk-6",
-    "https://huggingface.co/blog/hf-skills-training",
-    "https://huggingface.co/blog/gradio-vton-mcp",
-    "https://huggingface.co/blog/llm-inference-on-edge",
-    "https://openai.com/index/genspark",
-    "https://vercel.com/blog/vercel-collaborates-with-openai-for-gpt-5-launch",
-    "https://vercel.com/changelog/next-js-ai-chatbot-2-0",
     "https://dev.to/nhi_ng/i-let-an-ai-agent-rebuild-my-portfolio-heres-how-antigravity-gemini-did-it-4fep",
+    "https://vercel.com/changelog/gpt-5-2-models-now-available-on-vercel-ai-gateway",
+    "https://huggingface.co/blog/togethercomputer/together-ft",
+    "https://vercel.com/changelog/gpt-5-1-codex-max-now-available-on-vercel-ai-gateway",
+    "https://huggingface.co/blog/llm-inference-on-edge",
+    "https://vercel.com/blog/vercel-collaborates-with-openai-for-gpt-5-launch",
+    "https://huggingface.co/blog/hf-skills-training",
+    "https://openai.com/index/genspark",
     "https://dev.to/aaronwu-builds/when-the-gui-disappears-google-ucp-and-the-shift-to-protocol-first-commerce-49pn",
-    "https://huggingface.co/blog/togethercomputer/together-ft"
+    "https://vercel.com/blog/ai-sdk-6",
+    "https://huggingface.co/blog/gradio-vton-mcp",
+    "https://vercel.com/changelog/claude-opus-4-5-now-available-in-vercel-ai-gateway",
+    "https://vercel.com/changelog/next-js-ai-chatbot-2-0",
+    "https://vercel.com/changelog/openai-gpt-oss-safeguard-20b-now-available-in-vercel-ai-gateway"
   ],
-  "last_run": "2026-01-12T18:10:38.179570"
+  "last_run": "2026-01-12T18:35:08.922169"
 }
