@@ -69,31 +69,40 @@
       "content_hash": "2668292dcfe469e4",
       "source_url": "https://dev.to/nhi_ng/i-let-an-ai-agent-rebuild-my-portfolio-heres-how-antigravity-gemini-did-it-4fep",
       "posted_at": "2026-01-12T16:29:09.365008"
+    },
+    {
+      "tweet_id": "2010758872676352230",
+      "content": "Vercel's AI Gateway just made OpenAI's GPT-OSS-Safeguard-20B accessible with a unified API. But here's the thing: this consistency is what SSI needs. Imagine seamless content moderation for decentralized identities.",
+      "content_hash": "735c63b5b131cd05",
+      "source_url": "https://vercel.com/changelog/openai-gpt-oss-safeguard-20b-now-available-in-vercel-ai-gateway",
+      "posted_at": "2026-01-12T17:00:48.110665"
     }
   ],
   "content_hashes": [
-    "b5cfb94906d565e2",
-    "28a7173197a910e2",
-    "460aaaf753864eb1",
     "2d23921132d72bc5",
-    "d5a3fd58cc332b5d",
-    "f67373b3e8ff5821",
-    "2668292dcfe469e4",
-    "e0d43ded0d7208ff",
+    "28a7173197a910e2",
     "a0c09515654e830c",
-    "dd9abf822908f81c"
+    "735c63b5b131cd05",
+    "d5a3fd58cc332b5d",
+    "2668292dcfe469e4",
+    "460aaaf753864eb1",
+    "b5cfb94906d565e2",
+    "e0d43ded0d7208ff",
+    "dd9abf822908f81c",
+    "f67373b3e8ff5821"
   ],
   "processed_urls": [
-    "https://dev.to/nhi_ng/i-let-an-ai-agent-rebuild-my-portfolio-heres-how-antigravity-gemini-did-it-4fep",
-    "https://dev.to/aaronwu-builds/when-the-gui-disappears-google-ucp-and-the-shift-to-protocol-first-commerce-49pn",
-    "https://vercel.com/blog/vercel-collaborates-with-openai-for-gpt-5-launch",
+    "https://vercel.com/changelog/openai-gpt-oss-safeguard-20b-now-available-in-vercel-ai-gateway",
+    "https://huggingface.co/blog/hf-skills-training",
     "https://huggingface.co/blog/togethercomputer/together-ft",
-    "https://vercel.com/changelog/claude-opus-4-5-now-available-in-vercel-ai-gateway",
-    "https://huggingface.co/blog/gradio-vton-mcp",
     "https://openai.com/index/genspark",
-    "https://huggingface.co/blog/llm-inference-on-edge",
+    "https://dev.to/aaronwu-builds/when-the-gui-disappears-google-ucp-and-the-shift-to-protocol-first-commerce-49pn",
+    "https://huggingface.co/blog/gradio-vton-mcp",
     "https://vercel.com/blog/ai-sdk-6",
-    "https://huggingface.co/blog/hf-skills-training"
+    "https://dev.to/nhi_ng/i-let-an-ai-agent-rebuild-my-portfolio-heres-how-antigravity-gemini-did-it-4fep",
+    "https://vercel.com/blog/vercel-collaborates-with-openai-for-gpt-5-launch",
+    "https://huggingface.co/blog/llm-inference-on-edge",
+    "https://vercel.com/changelog/claude-opus-4-5-now-available-in-vercel-ai-gateway"
   ],
-  "last_run": "2026-01-12T16:29:09.365472"
+  "last_run": "2026-01-12T17:00:48.111199"
 }
