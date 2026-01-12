@@ -127,6 +127,7 @@ sources:
 
 scoring:
   boost_topics:
+    # AI & ML
     - "AI"
     - "machine learning"
     - "LLM"
@@ -134,27 +135,60 @@ scoring:
     - "Claude"
     - "neural network"
     - "deep learning"
+    - "AGI"
+    - "computer vision"
+    - "NLP"
+    # Dev & Engineering
     - "JavaScript"
     - "TypeScript"
     - "React"
+    - "Next.js"
     - "Node.js"
     - "Python"
+    - "Rust"
     - "web development"
     - "frontend"
+    - "backend"
+    - "full-stack"
+    - "API"
+    - "microservices"
+    - "DevOps"
+    - "CI/CD"
+    # Identity & Web3
+    - "SSI"
+    - "Self-Sovereign Identity"
+    - "DID"
+    - "decentralized identity"
+    - "verifiable credentials"
     - "blockchain"
     - "Ethereum"
     - "DeFi"
     - "smart contracts"
+    - "Web3"
+    # Startup & Building
+    - "startup"
+    - "indie hacker"
+    - "bootstrapping"
+    - "side project"
+    - "shipping"
+    - "launch"
+    - "MVP"
+    - "product"
+    - "open source"
+    - "developer tools"
   mute_topics:
     - "politics"
     - "celebrity"
     - "sports"
     - "meme coins"
     - "NFT scams"
+    - "gambling"
+    - "dating"
 
 schedule:
-  tweets_per_day: 30
-  active_hours: "08:00-22:00"
+  # Twitter free tier: ~50 tweets/day, using 48 to stay safe
+  tweets_per_day: 48
+  active_hours: "07:00-23:00"
   timezone: "Europe/Paris"
 
 # LLM Configuration

@@ -217,6 +217,80 @@ class TwitterClient:
         except Exception as e:
             raise TwitterAPIError(f"Failed to parse response: {e}") from e
 
+    def post_thread(
+        self,
+        tweets: list[str],
+        media_ids_first: list[str] | None = None,
+    ) -> list[Tweet]:
+        """Post a thread of tweets.
+
+        Args:
+            tweets: List of tweet texts (each max 280 characters)
+            media_ids_first: Optional media IDs to attach to first tweet only
+
+        Returns:
+            List of Tweet objects in order
+
+        Raises:
+            TwitterAPIError: If posting fails
+        """
+        if not tweets:
+            raise TwitterAPIError("No tweets to post")
+
+        posted = []
+        reply_to_id = None
+
+        for i, text in enumerate(tweets):
+            if len(text) > 280:
+                raise TwitterAPIError(f"Tweet {i + 1} exceeds 280 characters")
+
+            url = f"{self.BASE_URL}/tweets"
+            headers = self._get_oauth1_header("POST", url)
+            headers["Content-Type"] = "application/json"
+
+            payload = {"text": text}
+
+            # Attach media to first tweet only
+            if i == 0 and media_ids_first:
+                payload["media"] = {"media_ids": media_ids_first}
+
+            # Reply to previous tweet in thread
+            if reply_to_id:
+                payload["reply"] = {"in_reply_to_tweet_id": reply_to_id}
+
+            try:
+                response = self._client.post(url, headers=headers, json=payload)
+            except httpx.HTTPError as e:
+                raise TwitterAPIError(f"HTTP error posting tweet {i + 1}: {e}") from e
+
+            if response.status_code == 429:
+                raise TwitterAPIError("Rate limit exceeded", status_code=429)
+
+            if response.status_code != 201:
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get("detail", response.text)
+                except Exception:
+                    error_msg = response.text
+                raise TwitterAPIError(
+                    f"Failed to post tweet {i + 1}: {error_msg}",
+                    status_code=response.status_code,
+                )
+
+            try:
+                data = response.json()
+                tweet_data = data.get("data", {})
+                tweet = Tweet(
+                    id=tweet_data.get("id", ""),
+                    text=tweet_data.get("text", text),
+                )
+                posted.append(tweet)
+                reply_to_id = tweet.id
+            except Exception as e:
+                raise TwitterAPIError(f"Failed to parse response for tweet {i + 1}: {e}") from e
+
+        return posted
+
     def verify_credentials(self) -> bool:
         """Verify that credentials are valid.
 

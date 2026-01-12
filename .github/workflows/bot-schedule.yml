@@ -45,7 +45,12 @@ jobs:
           mkdir -p state
 
           # Run the bot with smart scheduling
-          uv run twitter-bot run --check-schedule
+          # --images flag enables image attachment when LLM suggests one
+          if [ -d "assets/memes" ] && [ "$(ls -A assets/memes 2>/dev/null)" ]; then
+            uv run twitter-bot run --check-schedule --images assets/memes
+          else
+            uv run twitter-bot run --check-schedule
+          fi
 
       - name: Commit and Push State
         if: success()

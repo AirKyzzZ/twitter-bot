@@ -147,6 +147,10 @@ def draft(
 
     console.print("[blue]Generating drafts...[/blue]")
 
+    # Get recent tweets for context
+    state_manager = StateManager(settings.state_file)
+    recent_tweets = [t.content for t in state_manager.get_recent_tweets(5)]
+
     try:
         provider = get_llm_provider(settings)
         voice_profile = None
@@ -155,7 +159,7 @@ def draft(
             if voice_path.exists():
                 voice_profile = voice_path.read_text()
 
-        generator = TweetGenerator(provider, voice_profile)
+        generator = TweetGenerator(provider, voice_profile, recent_tweets)
         drafts = generator.generate_drafts(source_content, url, n=count)
     except LLMProviderError as e:
         console.print(f"[red]LLM error:[/red] {e}")
@@ -163,11 +167,21 @@ def draft(
 
     console.print(f"\n[green]Generated {len(drafts)} drafts:[/green]\n")
 
-    for i, draft in enumerate(drafts, 1):
-        char_count = len(draft.content)
-        color = "green" if char_count <= 280 else "red"
-        console.print(f"[bold]Draft {i}[/bold] [{color}]{char_count} chars[/{color}]")
-        console.print(f"  {draft.content}")
+    for i, draft_item in enumerate(drafts, 1):
+        if draft_item.is_thread:
+            console.print(f"[bold]Draft {i}[/bold] [cyan]THREAD ({len(draft_item.thread_parts)} parts)[/cyan]")
+            for j, part in enumerate(draft_item.thread_parts, 1):
+                char_count = len(part)
+                color = "green" if char_count <= 280 else "red"
+                console.print(f"  {j}. [{color}]{char_count}c[/{color}] {part}")
+        else:
+            char_count = len(draft_item.content)
+            color = "green" if char_count <= 280 else "red"
+            console.print(f"[bold]Draft {i}[/bold] [{color}]{char_count} chars[/{color}]")
+            console.print(f"  {draft_item.content}")
+
+        if draft_item.suggested_image:
+            console.print(f"  [blue]Image suggestion:[/blue] {draft_item.suggested_image}")
         console.print()
 
 
@@ -271,6 +285,9 @@ def run(
     check_schedule: Annotated[
         bool, typer.Option("--check-schedule", help="Exit if not time to post based on daily limit")
     ] = False,
+    images_dir: Annotated[
+        Path | None, typer.Option("--images", help="Directory with images/memes to attach")
+    ] = None,
 ) -> None:
     """Execute one autonomous cycle: fetch → score → draft → post."""
     settings = get_config(config_path)
@@ -357,6 +374,9 @@ def run(
     console.print(f"[green]Selected:[/green] {best.title[:60]}...")
     console.print(f"  Score: {best.score:.2f}, Topics: {best.matched_boost_topics}")
 
+    # Get recent tweets for context (to avoid repetition)
+    recent_tweets = [t.content for t in state_manager.get_recent_tweets(5)]
+
     # Generate tweet
     try:
         provider = get_llm_provider(settings)
@@ -366,18 +386,40 @@ def run(
             if voice_path.exists():
                 voice_profile = voice_path.read_text()
 
-        generator = TweetGenerator(provider, voice_profile)
+        generator = TweetGenerator(provider, voice_profile, recent_tweets)
         draft = generator.generate_single(best.content, best.url)
     except LLMProviderError as e:
         console.print(f"[red]LLM error:[/red] {e}")
         raise typer.Exit(EXIT_API_ERROR) from None
 
-    console.print(f"\n[green]Generated:[/green] {draft.content}")
+    # Display generated content
+    if draft.is_thread:
+        console.print(f"\n[green]Generated thread ({len(draft.thread_parts)} tweets):[/green]")
+        for i, part in enumerate(draft.thread_parts, 1):
+            console.print(f"  {i}. {part}")
+    else:
+        console.print(f"\n[green]Generated:[/green] {draft.content}")
+
+    if draft.suggested_image:
+        console.print(f"[blue]Suggested image:[/blue] {draft.suggested_image}")
 
     if dry_run:
         console.print("\n[yellow]Dry run - not posting[/yellow]")
         state_manager.mark_url_processed(best.url)
         return
+
+    # Handle image attachment
+    media_ids = None
+    if images_dir and images_dir.exists() and draft.suggested_image:
+        # Try to find a matching image from the directory
+        import random
+
+        image_files = list(images_dir.glob("*.jpg")) + list(images_dir.glob("*.png"))
+        if image_files:
+            # For now, randomly select an image when one is suggested
+            # Future: could use AI to match suggestion to available images
+            selected_image = random.choice(image_files)
+            console.print(f"[blue]Attaching image:[/blue] {selected_image.name}")
 
     # Post
     try:
@@ -387,9 +429,37 @@ def run(
             access_token=settings.twitter.access_token,
             access_secret=settings.twitter.access_secret,
         ) as client:
-            tweet = client.post_tweet(draft.content)
-            console.print(f"\n[green]Posted![/green] Tweet ID: {tweet.id}")
-            state_manager.record_tweet(tweet.id, draft.content, best.url)
+            # Upload image if we have one
+            if media_ids is None and images_dir and images_dir.exists() and draft.suggested_image:
+                import random
+
+                image_files = list(images_dir.glob("*.jpg")) + list(images_dir.glob("*.png"))
+                if image_files:
+                    selected_image = random.choice(image_files)
+                    try:
+                        media_id = client.upload_media(str(selected_image))
+                        media_ids = [media_id]
+                        console.print(f"[green]Uploaded image:[/green] {selected_image.name}")
+                    except TwitterAPIError as e:
+                        console.print(f"[yellow]Failed to upload image:[/yellow] {e}")
+
+            if draft.is_thread and len(draft.thread_parts) > 1:
+                # Post as thread
+                tweets = client.post_thread(draft.thread_parts, media_ids_first=media_ids)
+                console.print(f"\n[green]Posted thread![/green] {len(tweets)} tweets")
+                console.print(f"  First tweet ID: {tweets[0].id}")
+                # Record the first tweet in the thread
+                state_manager.record_tweet(
+                    tweets[0].id,
+                    " | ".join(draft.thread_parts),  # Store full thread content
+                    best.url,
+                )
+            else:
+                # Post single tweet
+                tweet = client.post_tweet(draft.content, media_ids=media_ids)
+                console.print(f"\n[green]Posted![/green] Tweet ID: {tweet.id}")
+                state_manager.record_tweet(tweet.id, draft.content, best.url)
+
     except TwitterAPIError as e:
         console.print(f"[red]Twitter API error:[/red] {e}")
         raise typer.Exit(EXIT_API_ERROR) from None
@@ -401,6 +471,9 @@ def run(
 @app.command()
 def daemon(
     config_path: Annotated[Path | None, typer.Option("--config", "-c", help="Config file")] = None,
+    images_dir: Annotated[
+        Path | None, typer.Option("--images", help="Directory with images/memes to attach")
+    ] = None,
 ) -> None:
     """Start continuous autonomous mode (24/7 operation)."""
     settings = get_config(config_path)
@@ -409,10 +482,14 @@ def daemon(
     console.print(f"  Tweets/day: {settings.schedule.tweets_per_day}")
     console.print(f"  Active hours: {settings.schedule.active_hours}")
     console.print(f"  Timezone: {settings.schedule.timezone}")
+    if images_dir:
+        console.print(f"  Images dir: {images_dir}")
     console.print("\n[dim]Press Ctrl+C to stop[/dim]\n")
 
     def run_cycle() -> None:
         """Run a single posting cycle."""
+        import random
+
         # This calls the same logic as the 'run' command
         try:
             # Inline the run logic here for the daemon
@@ -441,6 +518,9 @@ def daemon(
             if not best:
                 return
 
+            # Get recent tweets for context (to avoid repetition)
+            recent_tweets = [t.content for t in state_manager.get_recent_tweets(5)]
+
             provider = get_llm_provider(settings)
             voice_profile = None
             if settings.profile.voice_file:
@@ -448,7 +528,7 @@ def daemon(
                 if voice_path.exists():
                     voice_profile = voice_path.read_text()
 
-            generator = TweetGenerator(provider, voice_profile)
+            generator = TweetGenerator(provider, voice_profile, recent_tweets)
             draft = generator.generate_single(best.content, best.url)
 
             with TwitterClient(
@@ -457,8 +537,33 @@ def daemon(
                 access_token=settings.twitter.access_token,
                 access_secret=settings.twitter.access_secret,
             ) as client:
-                tweet = client.post_tweet(draft.content)
-                state_manager.record_tweet(tweet.id, draft.content, best.url)
+                # Handle image attachment
+                media_ids = None
+                if images_dir and images_dir.exists() and draft.suggested_image:
+                    image_files = list(images_dir.glob("*.jpg")) + list(images_dir.glob("*.png"))
+                    if image_files:
+                        selected_image = random.choice(image_files)
+                        try:
+                            media_id = client.upload_media(str(selected_image))
+                            media_ids = [media_id]
+                            logging.info(f"Uploaded image: {selected_image.name}")
+                        except TwitterAPIError as e:
+                            logging.warning(f"Failed to upload image: {e}")
+
+                if draft.is_thread and len(draft.thread_parts) > 1:
+                    # Post as thread
+                    tweets = client.post_thread(draft.thread_parts, media_ids_first=media_ids)
+                    logging.info(f"Posted thread with {len(tweets)} tweets")
+                    state_manager.record_tweet(
+                        tweets[0].id,
+                        " | ".join(draft.thread_parts),
+                        best.url,
+                    )
+                else:
+                    # Post single tweet
+                    tweet = client.post_tweet(draft.content, media_ids=media_ids)
+                    logging.info(f"Posted tweet: {tweet.id}")
+                    state_manager.record_tweet(tweet.id, draft.content, best.url)
 
             state_manager.update_last_run()
 
