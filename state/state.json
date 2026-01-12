@@ -27,19 +27,28 @@
       "content_hash": "460aaaf753864eb1",
       "source_url": "https://huggingface.co/blog/llm-inference-on-edge",
       "posted_at": "2026-01-12T12:51:55.598595"
+    },
+    {
+      "tweet_id": "2010704063017726392",
+      "content": "GPT-5 generates polished UIs with clean code. Putain, what if we use it for SSI interfaces? Simplify identity management with auto-generated, secure UIs. Who's tried this?",
+      "content_hash": "dd9abf822908f81c",
+      "source_url": "https://vercel.com/blog/vercel-collaborates-with-openai-for-gpt-5-launch",
+      "posted_at": "2026-01-12T13:23:00.466526"
     }
   ],
   "content_hashes": [
-    "a0c09515654e830c",
     "f67373b3e8ff5821",
+    "460aaaf753864eb1",
+    "a0c09515654e830c",
     "b5cfb94906d565e2",
-    "460aaaf753864eb1"
+    "dd9abf822908f81c"
   ],
   "processed_urls": [
-    "https://huggingface.co/blog/hf-skills-training",
     "https://huggingface.co/blog/togethercomputer/together-ft",
     "https://huggingface.co/blog/gradio-vton-mcp",
+    "https://huggingface.co/blog/hf-skills-training",
+    "https://vercel.com/blog/vercel-collaborates-with-openai-for-gpt-5-launch",
     "https://huggingface.co/blog/llm-inference-on-edge"
   ],
-  "last_run": "2026-01-12T12:51:55.598945"
+  "last_run": "2026-01-12T13:23:00.466938"
 }
