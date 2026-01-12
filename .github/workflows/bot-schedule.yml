@@ -1,0 +1,65 @@
+name: Twitter Bot Schedule
+
+on:
+  schedule:
+    # Run every 20 minutes (smart scheduling handles rate limiting)
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed to push state changes
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Run Twitter Bot
+        env:
+          # API Keys from Secrets
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Config
+          TWITTER_BOT_DATA_DIR: "./state"
+        run: |
+          # Create state directory if it doesn't exist (though bot does this too)
+          mkdir -p state
+
+          # Run the bot with smart scheduling
+          uv run twitter-bot run --check-schedule
+
+      - name: Commit and Push State
+        if: success()
+        run: |
+          git config --global user.name "Twitter Bot Action"
+          git config --global user.email "bot@github.actions"
+
+          # Add state file - force add just in case it's ignored later
+          git add -f state/state.json
+
+          # Check if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to state."
+          else
+            git commit -m "chore: update bot state [skip ci]"
+            git push
+          fi

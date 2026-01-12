@@ -112,16 +112,10 @@ class ContentScorer:
         Returns:
             List of ScoredContent, sorted by score descending
         """
-        scored = [
-            self.score(title, url, content, weight)
-            for title, url, content, weight in items
-        ]
+        scored = [self.score(title, url, content, weight) for title, url, content, weight in items]
 
         # Filter by minimum score and mute topics
-        filtered = [
-            s for s in scored
-            if s.score >= min_score and not s.matched_mute_topics
-        ]
+        filtered = [s for s in scored if s.score >= min_score and not s.matched_mute_topics]
 
         # Sort by score descending
         return sorted(filtered, key=lambda x: x.score, reverse=True)

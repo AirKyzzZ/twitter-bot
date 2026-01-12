@@ -1,6 +1,7 @@
 """CLI commands using Typer."""
 
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -69,7 +70,9 @@ def get_llm_provider(settings: Settings):
     elif settings.gemini_api_key:
         return GeminiProvider(settings.gemini_api_key)
     else:
-        console.print("[red]Error:[/red] No LLM API key configured (OPENAI_API_KEY or GEMINI_API_KEY)")
+        console.print(
+            "[red]Error:[/red] No LLM API key configured (OPENAI_API_KEY or GEMINI_API_KEY)"
+        )
         raise typer.Exit(EXIT_CONFIG_ERROR)
 
 
@@ -105,7 +108,9 @@ def main(
 @app.command()
 def draft(
     url: Annotated[str | None, typer.Argument(help="URL to generate tweets from")] = None,
-    text: Annotated[str | None, typer.Option("--text", "-t", help="Text to generate tweets from")] = None,
+    text: Annotated[
+        str | None, typer.Option("--text", "-t", help="Text to generate tweets from")
+    ] = None,
     count: Annotated[int, typer.Option("--count", "-n", help="Number of drafts")] = 3,
     config_path: Annotated[Path | None, typer.Option("--config", "-c", help="Config file")] = None,
 ) -> None:
@@ -117,7 +122,7 @@ def draft(
         raise typer.Exit(EXIT_ERROR)
 
     source_content = ""
-    source_url = url
+    # source_url = url  # Removed to fix F841
 
     if url:
         console.print(f"[blue]Extracting content from:[/blue] {url}")
@@ -167,8 +172,12 @@ def draft(
 @app.command()
 def post(
     url: Annotated[str | None, typer.Argument(help="URL to generate and post tweet from")] = None,
-    text: Annotated[str | None, typer.Option("--text", "-t", help="Text to generate and post tweet from")] = None,
-    image: Annotated[Path | None, typer.Option("--image", "-i", help="Path to image file to attach")] = None,
+    text: Annotated[
+        str | None, typer.Option("--text", "-t", help="Text to generate and post tweet from")
+    ] = None,
+    image: Annotated[
+        Path | None, typer.Option("--image", "-i", help="Path to image file to attach")
+    ] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Generate but don't post")] = False,
     config_path: Annotated[Path | None, typer.Option("--config", "-c", help="Config file")] = None,
 ) -> None:
@@ -257,9 +266,55 @@ def post(
 def run(
     config_path: Annotated[Path | None, typer.Option("--config", "-c", help="Config file")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Don't actually post")] = False,
+    check_schedule: Annotated[
+        bool, typer.Option("--check-schedule", help="Exit if not time to post based on daily limit")
+    ] = False,
 ) -> None:
     """Execute one autonomous cycle: fetch → score → draft → post."""
     settings = get_config(config_path)
+
+    # Check schedule if requested
+    if check_schedule:
+        state_manager = StateManager(settings.state_file)
+        state = state_manager.load()
+
+        # Parse active hours
+        try:
+            start_str, end_str = settings.schedule.active_hours.split("-")
+            start_hour = int(start_str.split(":")[0])
+            end_hour = int(end_str.split(":")[0])
+        except Exception:
+            start_hour, end_hour = 8, 22
+
+        current_hour = datetime.utcnow().hour  # Using UTC as per simple implementation
+        # TODO: Handle timezone properly if needed using settings.schedule.timezone
+
+        if not (start_hour <= current_hour < end_hour):
+            console.print("[yellow]Outside active hours. Skipping.[/yellow]")
+            return
+
+        # Calculate interval
+        active_hours_count = end_hour - start_hour
+        if active_hours_count <= 0:
+            active_hours_count = 14
+
+        # Minutes available for posting
+        active_minutes = active_hours_count * 60
+        # Target interval in minutes
+        interval_minutes = active_minutes // settings.schedule.tweets_per_day
+        interval_minutes = max(10, interval_minutes)  # Minimum 10 mins
+
+        if state.last_run:
+            last_run_dt = datetime.fromisoformat(state.last_run)
+            minutes_since = (datetime.utcnow() - last_run_dt).total_seconds() / 60
+
+            if minutes_since < interval_minutes:
+                console.print(
+                    f"[yellow]Too soon to post.[/yellow] "
+                    f"Last run: {int(minutes_since)}m ago. "
+                    f"Interval: {interval_minutes}m."
+                )
+                return
 
     console.print("[blue]Starting autonomous cycle...[/blue]")
 
@@ -289,10 +344,7 @@ def run(
     state_manager = StateManager(settings.state_file)
     state = state_manager.load()
 
-    scorable = [
-        (item.title, item.url, item.summary, weight)
-        for item, weight in items
-    ]
+    scorable = [(item.title, item.url, item.summary, weight) for item, weight in items]
 
     best = scorer.select_best(scorable, state.processed_urls)
 
@@ -381,10 +433,7 @@ def daemon(
             state_manager = StateManager(settings.state_file)
             state = state_manager.load()
 
-            scorable = [
-                (item.title, item.url, item.summary, weight)
-                for item, weight in items
-            ]
+            scorable = [(item.title, item.url, item.summary, weight) for item, weight in items]
 
             best = scorer.select_best(scorable, state.processed_urls)
             if not best:
@@ -429,12 +478,8 @@ def tune(
     boost: Annotated[
         list[str] | None, typer.Option("--boost", "-b", help="Topics to boost")
     ] = None,
-    mute: Annotated[
-        list[str] | None, typer.Option("--mute", "-m", help="Topics to mute")
-    ] = None,
-    config_path: Annotated[
-        Path | None, typer.Option("--config", "-c", help="Config file")
-    ] = None,
+    mute: Annotated[list[str] | None, typer.Option("--mute", "-m", help="Topics to mute")] = None,
+    config_path: Annotated[Path | None, typer.Option("--config", "-c", help="Config file")] = None,
 ) -> None:
     """Adjust scoring weights for topics."""
     settings = get_config(config_path)
@@ -467,6 +512,7 @@ def status(
 
     if json_output:
         import json
+
         data = {
             "config": {
                 "tweets_per_day": settings.schedule.tweets_per_day,
@@ -521,15 +567,11 @@ def status(
     console.print("\n[bold]Health Checks[/bold]")
     console.print("  Config valid: [green]✓[/green]")
     gemini_status = (
-        "[green]✓ Configured[/green]"
-        if settings.gemini_api_key
-        else "[red]✗ Not configured[/red]"
+        "[green]✓ Configured[/green]" if settings.gemini_api_key else "[red]✗ Not configured[/red]"
     )
     console.print(f"  Gemini API: {gemini_status}")
     twitter_status = (
-        "[green]✓ Configured[/green]"
-        if settings.twitter.api_key
-        else "[red]✗ Not configured[/red]"
+        "[green]✓ Configured[/green]" if settings.twitter.api_key else "[red]✗ Not configured[/red]"
     )
     console.print(f"  Twitter API: {twitter_status}")
 
@@ -571,10 +613,7 @@ def dry_run_cmd(
     state_manager = StateManager(settings.state_file)
     state = state_manager.load()
 
-    scorable = [
-        (item.title, item.url, item.summary, weight)
-        for item, weight in items
-    ]
+    scorable = [(item.title, item.url, item.summary, weight) for item, weight in items]
 
     scored = scorer.score_and_filter(scorable)
     unprocessed = [s for s in scored if s.url not in state.processed_urls][:count]

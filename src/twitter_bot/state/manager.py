@@ -54,9 +54,7 @@ class StateManager:
             with open(self.state_file) as f:
                 data = json.load(f)
 
-            posted_tweets = [
-                PostedTweet(**tweet) for tweet in data.get("posted_tweets", [])
-            ]
+            posted_tweets = [PostedTweet(**tweet) for tweet in data.get("posted_tweets", [])]
             self._state = State(
                 posted_tweets=posted_tweets,
                 content_hashes=set(data.get("content_hashes", [])),

@@ -27,9 +27,7 @@ class WebExtractor:
         self._client = httpx.Client(
             timeout=timeout,
             follow_redirects=True,
-            headers={
-                "User-Agent": "Mozilla/5.0 (compatible; TwitterBot/1.0)"
-            },
+            headers={"User-Agent": "Mozilla/5.0 (compatible; TwitterBot/1.0)"},
         )
 
     def close(self) -> None:

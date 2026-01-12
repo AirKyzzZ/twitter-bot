@@ -3,9 +3,7 @@
 import os
 from pathlib import Path
 
-import pytest
-
-from twitter_bot.config import Settings, load_config, _interpolate_env_vars
+from twitter_bot.config import Settings, _interpolate_env_vars, load_config
 
 
 def test_default_settings():

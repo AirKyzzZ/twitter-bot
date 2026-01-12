@@ -83,17 +83,21 @@ class TwitterClient:
             for k, v in sorted(oauth_params.items())
         )
 
-        signature_base = "&".join([
-            method.upper(),
-            urllib.parse.quote(url, safe=""),
-            urllib.parse.quote(param_string, safe=""),
-        ])
+        signature_base = "&".join(
+            [
+                method.upper(),
+                urllib.parse.quote(url, safe=""),
+                urllib.parse.quote(param_string, safe=""),
+            ]
+        )
 
         # Create signing key
-        signing_key = "&".join([
-            urllib.parse.quote(self.api_secret, safe=""),
-            urllib.parse.quote(self.access_secret, safe=""),
-        ])
+        signing_key = "&".join(
+            [
+                urllib.parse.quote(self.api_secret, safe=""),
+                urllib.parse.quote(self.access_secret, safe=""),
+            ]
+        )
 
         # Generate signature
         signature = base64.b64encode(
@@ -108,8 +112,7 @@ class TwitterClient:
 
         # Build Authorization header
         auth_header = "OAuth " + ", ".join(
-            f'{k}="{urllib.parse.quote(v, safe="")}"'
-            for k, v in sorted(oauth_params.items())
+            f'{k}="{urllib.parse.quote(v, safe="")}"' for k, v in sorted(oauth_params.items())
         )
 
         return {"Authorization": auth_header}
@@ -137,13 +140,12 @@ class TwitterClient:
             with open(file_path, "rb") as f:
                 files = {"media": f}
                 response = self._client.post(url, headers=headers, files=files)
-            
+
             if response.status_code != 200:
                 raise TwitterAPIError(
-                    f"Media upload failed: {response.text}",
-                    status_code=response.status_code
+                    f"Media upload failed: {response.text}", status_code=response.status_code
                 )
-                
+
             return response.json()["media_id_string"]
         except Exception as e:
             if isinstance(e, TwitterAPIError):

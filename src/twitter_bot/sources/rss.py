@@ -85,9 +85,7 @@ class RSSClient:
 
         return items
 
-    def fetch_multiple(
-        self, feeds: list[tuple[str, float]]
-    ) -> list[tuple[FeedItem, float]]:
+    def fetch_multiple(self, feeds: list[tuple[str, float]]) -> list[tuple[FeedItem, float]]:
         """Fetch multiple feeds and return items with their weights.
 
         Args:

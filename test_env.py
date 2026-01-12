@@ -1,5 +1,6 @@
-from dotenv import load_dotenv
 import os
+
+from dotenv import load_dotenv
 
 load_dotenv()
 print(f"Key loaded: {bool(os.environ.get('GEMINI_API_KEY'))}")

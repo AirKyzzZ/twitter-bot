@@ -23,9 +23,7 @@ class TweetGenerator:
         self.voice_profile = voice_profile or ""
 
     @classmethod
-    def from_profile_file(
-        cls, provider: LLMProvider, profile_path: Path
-    ) -> "TweetGenerator":
+    def from_profile_file(cls, provider: LLMProvider, profile_path: Path) -> "TweetGenerator":
         """Create generator with voice profile from file."""
         voice_profile = ""
         if profile_path.exists():
@@ -57,7 +55,9 @@ You're Maxime. 19. Bordeaux. You build shit.
 - Running your own web agency (Klyx) at 19
 - Co-founded the biggest parkour club in Nouvelle-Aquitaine
 
-Your energy: Pieter Levels meets George Hotz. Indie hacker who ships fast. Technical contrarian. No corporate BS. You're young but you're building real things while others are still deciding what to do.
+Your energy: Pieter Levels meets George Hotz. Indie hacker who ships fast.
+Technical contrarian. No corporate BS.
+You're young but you're building real things while others are still deciding what to do.
 
 ## TWEET STYLE
 

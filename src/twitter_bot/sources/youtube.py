@@ -109,6 +109,6 @@ class YouTubeExtractor:
         if match:
             # Unescape JSON string
             desc = match.group(1)
-            desc = desc.replace("\\n", "\n").replace("\\\"", '"')
+            desc = desc.replace("\\n", "\n").replace('\\"', '"')
             return desc[:2000]  # Limit length
         return ""
