@@ -65,8 +65,11 @@ class DaemonScheduler:
 
     def _is_within_active_hours(self) -> bool:
         """Check if current time is within active hours."""
+        from zoneinfo import ZoneInfo
+
         start_hour, end_hour = self._parse_active_hours()
-        current_hour = datetime.now().hour
+        tz = ZoneInfo(self.timezone)
+        current_hour = datetime.now(tz).hour
         return start_hour <= current_hour < end_hour
 
     def _wrapped_run_cycle(self) -> None:

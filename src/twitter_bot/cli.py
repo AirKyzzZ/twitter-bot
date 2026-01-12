@@ -19,8 +19,7 @@ from twitter_bot.exceptions import (
     TwitterAPIError,
 )
 from twitter_bot.generation import GeminiProvider, GroqProvider, OpenAIProvider, TweetGenerator
-from twitter_bot.scoring import ContentScorer
-from twitter_bot.sources import RSSClient, WebExtractor, YouTubeExtractor
+from twitter_bot.sources import WebExtractor, YouTubeExtractor
 from twitter_bot.state import StateManager
 from twitter_bot.twitter import TwitterClient
 
@@ -169,7 +168,9 @@ def draft(
 
     for i, draft_item in enumerate(drafts, 1):
         if draft_item.is_thread:
-            console.print(f"[bold]Draft {i}[/bold] [cyan]THREAD ({len(draft_item.thread_parts)} parts)[/cyan]")
+            console.print(
+                f"[bold]Draft {i}[/bold] [cyan]THREAD ({len(draft_item.thread_parts)} parts)[/cyan]"
+            )
             for j, part in enumerate(draft_item.thread_parts, 1):
                 char_count = len(part)
                 color = "green" if char_count <= 280 else "red"
@@ -298,6 +299,8 @@ def run(
 
     # Check schedule if requested
     if check_schedule:
+        from zoneinfo import ZoneInfo
+
         state_manager = StateManager(settings.state_file)
         state = state_manager.load()
 
@@ -309,8 +312,9 @@ def run(
         except Exception:
             start_hour, end_hour = 8, 22
 
-        current_hour = datetime.utcnow().hour  # Using UTC as per simple implementation
-        # TODO: Handle timezone properly if needed using settings.schedule.timezone
+        # Convert current UTC time to configured timezone
+        tz = ZoneInfo(settings.schedule.timezone)
+        current_hour = datetime.now(tz).hour
 
         if not (start_hour <= current_hour < end_hour):
             console.print("[yellow]Outside active hours. Skipping.[/yellow]")
@@ -343,7 +347,7 @@ def run(
 
     # Topic-based Generation (Generalist Mode)
     import random
-    
+
     if not settings.scoring.boost_topics:
         console.print("[red]Error:[/red] No boost_topics configured in config.yaml")
         raise typer.Exit(EXIT_CONFIG_ERROR)
@@ -429,7 +433,7 @@ def run(
                 state_manager.record_tweet(
                     tweets[0].id,
                     " | ".join(draft.thread_parts),  # Store full thread content
-                    None, # No source URL
+                    None,  # No source URL
                     source_title=f"Topic: {topic}",
                 )
             else:
@@ -437,10 +441,10 @@ def run(
                 tweet = client.post_tweet(draft.content, media_ids=media_ids)
                 console.print(f"\n[green]Posted![/green] Tweet ID: {tweet.id}")
                 state_manager.record_tweet(
-                    tweet.id, 
-                    draft.content, 
-                    None, # No source URL
-                    source_title=f"Topic: {topic}"
+                    tweet.id,
+                    draft.content,
+                    None,  # No source URL
+                    source_title=f"Topic: {topic}",
                 )
 
     except TwitterAPIError as e:
@@ -483,7 +487,7 @@ def daemon(
             logging.info(f"Selected Topic: {topic}")
 
             state_manager = StateManager(settings.state_file)
-            state = state_manager.load() # Load latest state
+            state = state_manager.load()  # Load latest state
 
             # Get recent tweets for context
             recent_tweets = [t.content for t in state_manager.get_recent_tweets(10)]
@@ -524,7 +528,7 @@ def daemon(
                     state_manager.record_tweet(
                         tweets[0].id,
                         " | ".join(draft.thread_parts),
-                        None, # No source URL
+                        None,  # No source URL
                         source_title=f"Topic: {topic}",
                     )
                 else:
@@ -532,10 +536,10 @@ def daemon(
                     tweet = client.post_tweet(draft.content, media_ids=media_ids)
                     logging.info(f"Posted tweet: {tweet.id}")
                     state_manager.record_tweet(
-                        tweet.id, 
-                        draft.content, 
-                        None, # No source URL
-                        source_title=f"Topic: {topic}"
+                        tweet.id,
+                        draft.content,
+                        None,  # No source URL
+                        source_title=f"Topic: {topic}",
                     )
 
             state_manager.update_last_run()
@@ -649,7 +653,9 @@ def status(
     console.print("\n[bold]Health Checks[/bold]")
     console.print("  Config valid: [green]✓[/green]")
     groq_status = (
-        "[green]✓ Configured (FREE)[/green]" if settings.groq_api_key else "[dim]✗ Not configured[/dim]"
+        "[green]✓ Configured (FREE)[/green]"
+        if settings.groq_api_key
+        else "[dim]✗ Not configured[/dim]"
     )
     console.print(f"  Groq API: {groq_status}")
     openai_status = (
@@ -689,7 +695,7 @@ def dry_run_cmd(
     # Initialize generator
     state_manager = StateManager(settings.state_file)
     recent_tweets = [t.content for t in state_manager.get_recent_tweets(10)]
-    
+
     try:
         provider = get_llm_provider(settings)
         voice_profile = None
@@ -697,7 +703,7 @@ def dry_run_cmd(
             voice_path = Path(settings.profile.voice_file).expanduser()
             if voice_path.exists():
                 voice_profile = voice_path.read_text()
-        
+
         generator = TweetGenerator(provider, voice_profile, recent_tweets)
     except LLMProviderError as e:
         console.print(f"[red]LLM error:[/red] {e}")
@@ -707,22 +713,21 @@ def dry_run_cmd(
 
     for i in range(count):
         topic = random.choice(settings.scoring.boost_topics)
-        console.print(f"[bold cyan]Draft {i+1}/{count} - Topic: {topic}[/bold cyan]")
-        
+        console.print(f"[bold cyan]Draft {i + 1}/{count} - Topic: {topic}[/bold cyan]")
+
         draft = generator.generate_from_topic(topic)
-        
+
         if draft.is_thread:
             console.print(f"[green]Thread ({len(draft.thread_parts)} tweets):[/green]")
             for j, part in enumerate(draft.thread_parts, 1):
                 console.print(f"  {j}. {part}")
         else:
             console.print(f"[green]Tweet:[/green] {draft.content}")
-            
+
         if draft.suggested_image:
             console.print(f"[blue]Image suggestion:[/blue] {draft.suggested_image}")
-            
-        console.print()
 
+        console.print()
 
 
 if __name__ == "__main__":
