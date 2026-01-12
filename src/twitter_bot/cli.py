@@ -18,7 +18,7 @@ from twitter_bot.exceptions import (
     SourceError,
     TwitterAPIError,
 )
-from twitter_bot.generation import GeminiProvider, OpenAIProvider, TweetGenerator
+from twitter_bot.generation import GeminiProvider, GroqProvider, OpenAIProvider, TweetGenerator
 from twitter_bot.scoring import ContentScorer
 from twitter_bot.sources import RSSClient, WebExtractor, YouTubeExtractor
 from twitter_bot.state import StateManager
@@ -65,13 +65,15 @@ def get_config(config_path: Path | None = None) -> Settings:
 
 def get_llm_provider(settings: Settings):
     """Get the LLM provider based on available API keys."""
-    if settings.openai_api_key:
+    if settings.groq_api_key:
+        return GroqProvider(settings.groq_api_key)
+    elif settings.openai_api_key:
         return OpenAIProvider(settings.openai_api_key)
     elif settings.gemini_api_key:
         return GeminiProvider(settings.gemini_api_key)
     else:
         console.print(
-            "[red]Error:[/red] No LLM API key configured (OPENAI_API_KEY or GEMINI_API_KEY)"
+            "[red]Error:[/red] No LLM API key configured (GROQ_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY)"
         )
         raise typer.Exit(EXIT_CONFIG_ERROR)
 
@@ -528,6 +530,8 @@ def status(
             },
             "health": {
                 "config_valid": True,
+                "groq_configured": bool(settings.groq_api_key),
+                "openai_configured": bool(settings.openai_api_key),
                 "gemini_configured": bool(settings.gemini_api_key),
                 "twitter_configured": bool(settings.twitter.api_key),
             },
@@ -566,8 +570,16 @@ def status(
     # Health checks
     console.print("\n[bold]Health Checks[/bold]")
     console.print("  Config valid: [green]✓[/green]")
+    groq_status = (
+        "[green]✓ Configured (FREE)[/green]" if settings.groq_api_key else "[dim]✗ Not configured[/dim]"
+    )
+    console.print(f"  Groq API: {groq_status}")
+    openai_status = (
+        "[green]✓ Configured[/green]" if settings.openai_api_key else "[dim]✗ Not configured[/dim]"
+    )
+    console.print(f"  OpenAI API: {openai_status}")
     gemini_status = (
-        "[green]✓ Configured[/green]" if settings.gemini_api_key else "[red]✗ Not configured[/red]"
+        "[green]✓ Configured[/green]" if settings.gemini_api_key else "[dim]✗ Not configured[/dim]"
     )
     console.print(f"  Gemini API: {gemini_status}")
     twitter_status = (

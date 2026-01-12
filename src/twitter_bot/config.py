@@ -73,6 +73,7 @@ class Settings(BaseSettings):
     # LLM settings
     gemini_api_key: str = ""
     openai_api_key: str = ""
+    groq_api_key: str = ""
 
     # Paths
     data_dir: Path = Path.home() / ".twitter-bot"
