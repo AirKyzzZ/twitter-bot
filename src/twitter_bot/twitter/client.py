@@ -191,6 +191,30 @@ class TwitterClient:
             raise TwitterAPIError(f"HTTP error posting tweet: {e}") from e
 
         if response.status_code == 429:
+            # Check rate limit reset time
+            reset_time = response.headers.get("x-rate-limit-reset")
+            if reset_time:
+                import time
+
+                wait_seconds = int(reset_time) - int(time.time())
+                if wait_seconds > 0:
+                    import logging
+
+                    logging.warning(f"Rate limit exceeded, waiting {wait_seconds} seconds")
+                    time.sleep(wait_seconds)
+                    # Retry once after waiting
+                    response = self._client.post(
+                        url,
+                        headers=headers,
+                        json=payload,
+                    )
+                    if response.status_code == 201:
+                        data = response.json()
+                        tweet_data = data.get("data", {})
+                        return Tweet(
+                            id=tweet_data.get("id", ""),
+                            text=tweet_data.get("text", text),
+                        )
             raise TwitterAPIError("Rate limit exceeded", status_code=429)
 
         if response.status_code == 403:
@@ -264,6 +288,29 @@ class TwitterClient:
                 raise TwitterAPIError(f"HTTP error posting tweet {i + 1}: {e}") from e
 
             if response.status_code == 429:
+                # Check rate limit reset time
+                reset_time = response.headers.get("x-rate-limit-reset")
+                if reset_time:
+                    import time
+
+                    wait_seconds = int(reset_time) - int(time.time())
+                    if wait_seconds > 0:
+                        import logging
+
+                        logging.warning(f"Rate limit exceeded, waiting {wait_seconds} seconds")
+                        time.sleep(wait_seconds)
+                        # Retry once after waiting
+                        response = self._client.post(url, headers=headers, json=payload)
+                        if response.status_code == 201:
+                            data = response.json()
+                            tweet_data = data.get("data", {})
+                            tweet = Tweet(
+                                id=tweet_data.get("id", ""),
+                                text=tweet_data.get("text", text),
+                            )
+                            posted.append(tweet)
+                            reply_to_id = tweet.id
+                            continue
                 raise TwitterAPIError("Rate limit exceeded", status_code=429)
 
             if response.status_code != 201:

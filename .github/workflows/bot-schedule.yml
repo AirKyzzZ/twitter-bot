@@ -2,8 +2,8 @@ name: Twitter Bot Schedule
 
 on:
   schedule:
-    # Run every 20 minutes (smart scheduling handles rate limiting)
-    - cron: "*/20 * * * *"
+    # Run every 30 minutes (smart scheduling handles rate limiting)
+    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 jobs:

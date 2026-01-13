@@ -311,10 +311,10 @@ Output ONLY the tweet text (or THREAD: format). No quotes. No explanation.""")
         # Check for thread format
         is_thread = False
         thread_parts = []
-        
+
         # Normalize text for detection
         clean_text = text.strip()
-        
+
         if clean_text.upper().startswith("THREAD:"):
             is_thread = True
             thread_content = clean_text[7:].strip()
@@ -329,6 +329,9 @@ Output ONLY the tweet text (or THREAD: format). No quotes. No explanation.""")
             # Matches "1.", "1/", "1/6", "1 of 6", "1)", "\n2.", etc.
             parts = re.split(r"(?:^|\n)\s*\d+\s*(?:[./)]|of|/)\s*(?:\d+\s*)?", thread_content)
             thread_parts = [p.strip() for p in parts if p.strip()]
+
+            # Limit thread to 3 tweets max to stay within API limits
+            thread_parts = thread_parts[:3]
 
             # Validate each part is within limits
             thread_parts = [p[:280] for p in thread_parts]
@@ -384,14 +387,14 @@ Output ONLY the tweet text (or THREAD: format). No quotes. No explanation.""")
         while len(valid_drafts) < n and attempts < max_attempts:
             # Request more than needed to allow for filtering
             batch_size = (n - len(valid_drafts)) + 1
-            
+
             prompt = self._build_prompt(
                 content,
                 source_url,
                 allow_thread=allow_thread,
                 suggest_image=suggest_image,
             )
-            
+
             # If we are retrying, add a strong hint to be different
             if attempts > 0:
                 prompt += "\n\nCRITICAL: The previous outputs were too similar to my past tweets. You MUST change the structure and opening hook completely."
@@ -400,19 +403,19 @@ Output ONLY the tweet text (or THREAD: format). No quotes. No explanation.""")
 
             for result in results:
                 draft = self._parse_response(result.text, source_url)
-                
+
                 # Check for similarity
                 if self._is_too_similar(draft.content):
                     continue
-                
+
                 # Check for duplicates within current batch
                 if any(d.content == draft.content for d in valid_drafts):
                     continue
-                    
+
                 valid_drafts.append(draft)
                 if len(valid_drafts) >= n:
                     break
-            
+
             attempts += 1
 
         # If we couldn't generate enough valid drafts, just return what we have

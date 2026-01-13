@@ -206,8 +206,8 @@ scoring:
     - "dating"
 
 schedule:
-  # Twitter free tier: ~50 tweets/day, using 48 to stay safe
-  tweets_per_day: 52
+  # Twitter free tier: 50 posts/day max, using 40 to account for threads
+  tweets_per_day: 40
   active_hours: "07:00-23:00"
   timezone: "Europe/Paris"
 
