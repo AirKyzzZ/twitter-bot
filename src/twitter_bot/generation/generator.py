@@ -115,8 +115,24 @@ class TweetGenerator:
                 category = "STANDARD"
                 suggested_format = random.choice(STANDARD_FORMATS)
 
+        # Add variety by rotating opening styles
+        opening_styles = [
+            "Start with a QUESTION that challenges assumptions",
+            "Start with a PERSONAL STORY or anecdote (one sentence)",
+            "Start with a BOLD CLAIM that's slightly controversial",
+            "Start with CONCRETE NUMBERS or data",
+            "Start with a SHORT observation (under 10 words), then expand",
+            "Start by DISAGREEING with common advice",
+            "Start with something you LEARNED today",
+            "Start with a COMPARISON (X vs Y format)",
+        ]
+        selected_opening = random.choice(opening_styles)
+
         # Maxime-specific voice instructions
-        prompt_parts.append(f"""## WHO YOU ARE
+        prompt_parts.append(f"""## OPENING STYLE FOR THIS TWEET
+**{selected_opening}**
+
+## WHO YOU ARE
 
 You're Maxime. 19. Bordeaux. You build shit.
 
@@ -189,11 +205,16 @@ You don't write "updates". You engineer viral assets using these proven framewor
    5. **No Hashtags**. Never.
    
    ## BANNED (instant cringe)
-   
+
    - "game changer", "level up", "unlock your potential"
    - "imagine if", "what if I told you", "here's the thing"
    - "revolution", "beast", "insane", "wild" (unless ironic)
-   - "ahead of the curve", "left behind", "FOMO"
+   - "ahead of the curve", "left behind", "getting left behind", "FOMO"
+   - "You're about to witness", "You're about to unlock"
+   - "This proves that", "This kills the old way"
+   - "I've spent months digging", "Here's what I found"
+   - "The best part?", "But here's the catch"
+   - "What's your next move?", "Who's with me?"
    - Anything a LinkedIn influencer would say
    - Excessive emojis (one or zero max, and only if natural)
    - Hashtags (never)
@@ -224,17 +245,19 @@ You don't write "updates". You engineer viral assets using these proven framewor
 - Structure: Hook -> Context -> Step-by-Step -> Outcome.
 """)
 
-        # Recent tweets context to avoid repetition
+        # Recent tweets context to avoid repetition - use last 15 for better coverage
         if self.recent_tweets:
-            recent_context = "\n".join(f"- {t}" for t in self.recent_tweets[-5:])
+            recent_context = "\n".join(f"- {t[:150]}..." if len(t) > 150 else f"- {t}" for t in self.recent_tweets[-15:])
             prompt_parts.append(f"""## YOUR RECENT TWEETS (DON'T REPEAT PATTERNS)
 
 {recent_context}
 
-IMPORTANT: Your new tweet must be DIFFERENT from these. Avoid:
-- Same sentence structures (if you said "X > Y", don't do that pattern again)
-- Same topics (if you just talked about decentralization, talk about something else)
-- Same length/format (if last tweets were all short, try something longer and vice versa)
+CRITICAL - Your new tweet must be COMPLETELY DIFFERENT:
+- NO similar openings (if recent tweets start with "You're about...", start differently)
+- NO same sentence structures (vary between questions, statements, stories)
+- NO same hooks (if you used "This proves...", try a story or question instead)
+- If recent tweets were long, make this one SHORT and punchy
+- If recent tweets were threads, make this a single killer tweet
 """)
 
         # Content to transform
@@ -292,6 +315,28 @@ Output ONLY the tweet text (or THREAD: format). No quotes. No explanation.""")
 
         return "\n".join(prompt_parts)
 
+    def _truncate_at_word_boundary(self, text: str, max_length: int = 280) -> str:
+        """Truncate text at word boundary, preserving complete sentences when possible."""
+        if len(text) <= max_length:
+            return text
+
+        # Try to find a sentence boundary first (. ! ?)
+        truncated = text[:max_length]
+
+        # Look for last sentence boundary within limit
+        for punct in [". ", "! ", "? "]:
+            last_sentence = truncated.rfind(punct)
+            if last_sentence > max_length * 0.5:  # At least 50% of content
+                return truncated[: last_sentence + 1].strip()
+
+        # No good sentence boundary - find last word boundary
+        last_space = truncated.rfind(" ")
+        if last_space > max_length * 0.7:  # At least 70% of content
+            return truncated[:last_space].strip()
+
+        # Fallback: just use character limit minus some buffer
+        return truncated.strip()
+
     def _parse_response(self, text: str, source_url: str | None = None) -> TweetDraft:
         """Parse LLM response into a TweetDraft, handling threads and images."""
         text = text.strip()
@@ -330,19 +375,19 @@ Output ONLY the tweet text (or THREAD: format). No quotes. No explanation.""")
             parts = re.split(r"(?:^|\n)\s*\d+\s*(?:[./)]|of|/)\s*(?:\d+\s*)?", thread_content)
             thread_parts = [p.strip() for p in parts if p.strip()]
 
-            # Limit thread to 3 tweets max to stay within API limits
-            thread_parts = thread_parts[:3]
+            # Limit thread to 5 tweets max
+            thread_parts = thread_parts[:5]
 
-            # Validate each part is within limits
-            thread_parts = [p[:280] for p in thread_parts]
+            # Truncate each part at word boundary
+            thread_parts = [self._truncate_at_word_boundary(p, 280) for p in thread_parts]
 
             # Main content is the first tweet
             content = thread_parts[0] if thread_parts else text
         else:
             content = text
-            # Truncate if over 280
+            # Truncate at word boundary if over 280
             if len(content) > 280:
-                content = content[:277] + "..."
+                content = self._truncate_at_word_boundary(content, 280)
 
         return TweetDraft(
             content=content,
@@ -352,12 +397,47 @@ Output ONLY the tweet text (or THREAD: format). No quotes. No explanation.""")
             suggested_image=suggested_image,
         )
 
-    def _is_too_similar(self, content: str, threshold: float = 0.6) -> bool:
-        """Check if content is too similar to recent tweets."""
+    # Overused phrases to detect and reject
+    OVERUSED_PATTERNS = [
+        r"you're about to witness",
+        r"you're about to unlock",
+        r"this proves that",
+        r"this kills the old way",
+        r"you're either .+ or getting left behind",
+        r"getting left behind",
+        r"ahead of the curve",
+        r"i've spent months digging",
+        r"here's what i found",
+        r"the best part\?",
+        r"but here's the catch",
+        r"what's your next move",
+        r"who's with me\?",
+        r"let me explain",
+    ]
+
+    def _is_too_similar(self, content: str, threshold: float = 0.5) -> bool:
+        """Check if content is too similar to recent tweets or uses overused patterns."""
+        content_lower = content.lower()
+
+        # Check for overused patterns
+        for pattern in self.OVERUSED_PATTERNS:
+            if re.search(pattern, content_lower):
+                return True
+
+        # Check similarity against recent tweets (lowered threshold from 0.6 to 0.5)
         for past_tweet in self.recent_tweets:
-            ratio = SequenceMatcher(None, content, past_tweet).ratio()
+            ratio = SequenceMatcher(None, content.lower(), past_tweet.lower()).ratio()
             if ratio > threshold:
                 return True
+
+            # Also check if they share the same opening phrase (first 50 chars)
+            if len(content) > 50 and len(past_tweet) > 50:
+                opening_ratio = SequenceMatcher(
+                    None, content_lower[:50], past_tweet.lower()[:50]
+                ).ratio()
+                if opening_ratio > 0.7:  # Same opening = too similar
+                    return True
+
         return False
 
     def generate_drafts(

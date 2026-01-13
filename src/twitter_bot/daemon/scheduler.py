@@ -1,8 +1,10 @@
 """APScheduler-based daemon for autonomous operation."""
 
 import logging
+import random
 import signal
 import sys
+import time
 from collections.abc import Callable
 from datetime import datetime
 
@@ -72,11 +74,17 @@ class DaemonScheduler:
         current_hour = datetime.now(tz).hour
         return start_hour <= current_hour < end_hour
 
-    def _wrapped_run_cycle(self) -> None:
-        """Wrapper that checks active hours before running."""
+    def _wrapped_run_cycle(self, skip_jitter: bool = False) -> None:
+        """Wrapper that checks active hours and adds jitter before running."""
         if not self._is_within_active_hours():
             logger.debug("Outside active hours, skipping cycle")
             return
+
+        # Add random jitter (0-5 minutes) to avoid predictable posting patterns
+        if not skip_jitter:
+            jitter_seconds = random.randint(0, 300)  # 0-5 minutes
+            logger.debug(f"Adding {jitter_seconds}s jitter before posting")
+            time.sleep(jitter_seconds)
 
         try:
             logger.info("Starting posting cycle")
@@ -119,8 +127,8 @@ class DaemonScheduler:
         self._scheduler.start()
         self._running = True
 
-        # Run first cycle immediately
-        self._wrapped_run_cycle()
+        # Run first cycle immediately (no jitter for first run)
+        self._wrapped_run_cycle(skip_jitter=True)
 
     def stop(self) -> None:
         """Stop the daemon scheduler."""

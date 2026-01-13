@@ -349,20 +349,19 @@ def run(
     console.print("[blue]Starting autonomous cycle...[/blue]")
 
     # Topic-based Generation (Generalist Mode)
-    import random
-
     if not settings.scoring.boost_topics:
         console.print("[red]Error:[/red] No boost_topics configured in config.yaml")
         raise typer.Exit(EXIT_CONFIG_ERROR)
 
-    topic = random.choice(settings.scoring.boost_topics)
-    console.print(f"[green]Selected Topic:[/green] {topic}")
-
     state_manager = StateManager(settings.state_file)
     state = state_manager.load()
 
-    # Get recent tweets for context (to avoid repetition)
-    recent_tweets = [t.content for t in state_manager.get_recent_tweets(10)]
+    # Select topic with rotation (avoid recently used topics)
+    topic = state_manager.select_topic_with_rotation(settings.scoring.boost_topics)
+    console.print(f"[green]Selected Topic:[/green] {topic}")
+
+    # Get recent tweets for context - use more for better deduplication
+    recent_tweets = [t.content for t in state_manager.get_recent_tweets(15)]
 
     # Generate tweet
     try:
@@ -443,12 +442,15 @@ def run(
                 # Post single tweet
                 tweet = client.post_tweet(draft.content, media_ids=media_ids)
                 console.print(f"\n[green]Posted![/green] Tweet ID: {tweet.id}")
-            state_manager.record_tweet(
-                tweet.id,
-                draft.content,
-                None,  # No source URL
-                source_title=f"Topic: {topic}",
-            )
+                state_manager.record_tweet(
+                    tweet.id,
+                    draft.content,
+                    None,  # No source URL
+                    source_title=f"Topic: {topic}",
+                )
+
+            # Record topic for rotation tracking
+            state_manager.record_topic(topic)
 
     except TwitterAPIError as e:
         console.print(f"[red]Twitter API error:[/red] {e}")
@@ -489,14 +491,15 @@ def daemon(
                 logging.error("No boost_topics configured")
                 return
 
-            topic = random.choice(settings.scoring.boost_topics)
-            logging.info(f"Selected Topic: {topic}")
-
             state_manager = StateManager(settings.state_file)
             state = state_manager.load()  # Load latest state
 
-            # Get recent tweets for context
-            recent_tweets = [t.content for t in state_manager.get_recent_tweets(10)]
+            # Select topic with rotation (avoid recently used topics)
+            topic = state_manager.select_topic_with_rotation(settings.scoring.boost_topics)
+            logging.info(f"Selected Topic: {topic}")
+
+            # Get recent tweets for context - use more for better deduplication
+            recent_tweets = [t.content for t in state_manager.get_recent_tweets(15)]
 
             provider = get_llm_provider(settings)
             voice_profile = None
@@ -547,6 +550,9 @@ def daemon(
                         None,  # No source URL
                         source_title=f"Topic: {topic}",
                     )
+
+                # Record topic for rotation tracking
+                state_manager.record_topic(topic)
 
             state_manager.update_last_run()
 

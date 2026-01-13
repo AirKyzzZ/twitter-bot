@@ -28,6 +28,7 @@ class State:
     posted_tweets: list[PostedTweet] = field(default_factory=list)
     content_hashes: set[str] = field(default_factory=set)
     processed_urls: set[str] = field(default_factory=set)
+    recent_topics: list[str] = field(default_factory=list)  # Track last N topics
     last_run: str | None = None
 
 
@@ -60,6 +61,7 @@ class StateManager:
                 posted_tweets=posted_tweets,
                 content_hashes=set(data.get("content_hashes", [])),
                 processed_urls=set(data.get("processed_urls", [])),
+                recent_topics=data.get("recent_topics", []),
                 last_run=data.get("last_run"),
             )
             return self._state
@@ -89,6 +91,7 @@ class StateManager:
             ],
             "content_hashes": list(self._state.content_hashes),
             "processed_urls": list(self._state.processed_urls),
+            "recent_topics": self._state.recent_topics,
             "last_run": self._state.last_run,
         }
 
@@ -156,3 +159,37 @@ class StateManager:
         """Get the most recent posted tweets."""
         state = self.load()
         return state.posted_tweets[-limit:]
+
+    def record_topic(self, topic: str, max_history: int = 10) -> None:
+        """Record a topic as recently used."""
+        state = self.load()
+        state.recent_topics.append(topic)
+        # Keep only last N topics
+        state.recent_topics = state.recent_topics[-max_history:]
+        self.save()
+
+    def get_recent_topics(self, limit: int = 10) -> list[str]:
+        """Get recently used topics."""
+        state = self.load()
+        return state.recent_topics[-limit:]
+
+    def select_topic_with_rotation(self, available_topics: list[str]) -> str:
+        """Select a topic, avoiding recently used ones."""
+        import random
+
+        state = self.load()
+        recent = set(state.recent_topics[-10:])  # Last 10 topics to avoid
+
+        # Filter out recent topics
+        fresh_topics = [t for t in available_topics if t not in recent]
+
+        # If all topics are recent, use topics not in last 5
+        if not fresh_topics:
+            very_recent = set(state.recent_topics[-5:])
+            fresh_topics = [t for t in available_topics if t not in very_recent]
+
+        # Fallback to all topics if still empty
+        if not fresh_topics:
+            fresh_topics = available_topics
+
+        return random.choice(fresh_topics)
