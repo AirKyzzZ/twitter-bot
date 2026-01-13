@@ -280,6 +280,9 @@ def post(
 
     except TwitterAPIError as e:
         console.print(f"[red]Twitter API error:[/red] {e}")
+        if e.status_code == 429:
+            console.print("[yellow]Rate limit hit - exiting silently[/yellow]")
+            raise typer.Exit(EXIT_SUCCESS) from None
         raise typer.Exit(EXIT_API_ERROR) from None
 
 
@@ -440,15 +443,18 @@ def run(
                 # Post single tweet
                 tweet = client.post_tweet(draft.content, media_ids=media_ids)
                 console.print(f"\n[green]Posted![/green] Tweet ID: {tweet.id}")
-                state_manager.record_tweet(
-                    tweet.id,
-                    draft.content,
-                    None,  # No source URL
-                    source_title=f"Topic: {topic}",
-                )
+            state_manager.record_tweet(
+                tweet.id,
+                draft.content,
+                None,  # No source URL
+                source_title=f"Topic: {topic}",
+            )
 
     except TwitterAPIError as e:
         console.print(f"[red]Twitter API error:[/red] {e}")
+        if e.status_code == 429:
+            console.print("[yellow]Rate limit hit - exiting silently[/yellow]")
+            raise typer.Exit(EXIT_SUCCESS) from None
         raise typer.Exit(EXIT_API_ERROR) from None
 
     state_manager.update_last_run()
