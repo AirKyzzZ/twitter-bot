@@ -47,6 +47,29 @@ class ScheduleConfig(BaseModel):
     timezone: str = "UTC"
 
 
+class ReplyConfig(BaseModel):
+    """Reply bot configuration."""
+
+    enabled: bool = True
+    max_per_day: int = 40
+    min_delay_seconds: int = 120  # 2 min between replies
+    max_delay_seconds: int = 300  # 5 min max
+    target_min_followers: int = 1000
+    target_max_followers: int = 500000
+    min_engagement_score: int = 5
+    score_threshold: float = 0.6  # Min score to consider replying
+    watch_interval_seconds: int = 45  # How often to check timeline
+    topics: list[str] = Field(default_factory=list)  # Override boost_topics
+    cookies_path: str = "~/.twitter-bot/cookies.json"
+
+
+class PosterConfig(BaseModel):
+    """Poster bot configuration (original tweet posting)."""
+
+    max_per_day: int = 10
+    allow_threads: bool = False
+
+
 class ProfileConfig(BaseModel):
     """User profile configuration."""
 
@@ -69,6 +92,8 @@ class Settings(BaseSettings):
     sources: list[SourceConfig] = Field(default_factory=list)
     scoring: ScoringConfig = Field(default_factory=ScoringConfig)
     schedule: ScheduleConfig = Field(default_factory=ScheduleConfig)
+    reply: ReplyConfig = Field(default_factory=ReplyConfig)
+    poster: PosterConfig = Field(default_factory=PosterConfig)
 
     # LLM settings
     gemini_api_key: str = ""

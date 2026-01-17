@@ -1,7 +1,7 @@
 """CLI commands using Typer."""
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -21,6 +21,7 @@ from twitter_bot.exceptions import (
 from twitter_bot.generation import GeminiProvider, GroqProvider, OpenAIProvider, TweetGenerator
 from twitter_bot.sources import WebExtractor, YouTubeExtractor
 from twitter_bot.state import StateManager
+from twitter_bot.state.manager import RepliedTweet
 from twitter_bot.twitter import TwitterClient
 
 app = typer.Typer(
@@ -72,7 +73,8 @@ def get_llm_provider(settings: Settings):
         return GeminiProvider(settings.gemini_api_key)
     else:
         console.print(
-            "[red]Error:[/red] No LLM API key configured (GROQ_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY)"
+            "[red]Error:[/red] No LLM API key configured "
+            "(GROQ_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY)"
         )
         raise typer.Exit(EXIT_CONFIG_ERROR)
 
@@ -336,7 +338,9 @@ def run(
 
         if state.last_run:
             last_run_dt = datetime.fromisoformat(state.last_run)
-            minutes_since = (datetime.utcnow() - last_run_dt).total_seconds() / 60
+            if last_run_dt.tzinfo is None:
+                last_run_dt = last_run_dt.replace(tzinfo=UTC)
+            minutes_since = (datetime.now(UTC) - last_run_dt).total_seconds() / 60
 
             if minutes_since < interval_minutes:
                 console.print(
@@ -348,13 +352,42 @@ def run(
 
     console.print("[blue]Starting autonomous cycle...[/blue]")
 
+    # Check poster daily limit
+    state_manager = StateManager(settings.state_file)
+    state = state_manager.load()
+
+    # Count today's posts
+    from zoneinfo import ZoneInfo
+
+    tz = ZoneInfo(settings.schedule.timezone)
+    today_start = datetime.now(tz).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    posts_today = 0
+    for tweet in state.posted_tweets:
+        try:
+            posted_at = datetime.fromisoformat(tweet.posted_at)
+            if posted_at.tzinfo is None:
+
+                posted_at = posted_at.replace(tzinfo=UTC)
+            if posted_at.astimezone(tz) >= today_start:
+                posts_today += 1
+        except Exception:
+            continue
+
+    if posts_today >= settings.poster.max_per_day:
+        console.print(
+            f"[yellow]Poster daily limit reached "
+            f"({posts_today}/{settings.poster.max_per_day})[/yellow]"
+        )
+        console.print("Skipping post cycle. Reply bot can still post.")
+        return
+
+    console.print(f"[dim]Posts today: {posts_today}/{settings.poster.max_per_day}[/dim]")
+
     # Topic-based Generation (Generalist Mode)
     if not settings.scoring.boost_topics:
         console.print("[red]Error:[/red] No boost_topics configured in config.yaml")
         raise typer.Exit(EXIT_CONFIG_ERROR)
-
-    state_manager = StateManager(settings.state_file)
-    state = state_manager.load()
 
     # Select topic with rotation (avoid recently used topics)
     topic = state_manager.select_topic_with_rotation(settings.scoring.boost_topics)
@@ -393,15 +426,18 @@ def run(
         console.print("\n[yellow]Dry run - not posting[/yellow]")
         return
 
-    # Handle image attachment
+    # Handle image attachment - select image once before posting
     media_ids = None
+    selected_image = None
     if images_dir and images_dir.exists() and draft.suggested_image:
+        import random as rnd
+
         # Try to find a matching image from the directory
         image_files = list(images_dir.glob("*.jpg")) + list(images_dir.glob("*.png"))
         if image_files:
             # For now, randomly select an image when one is suggested
             # Future: could use AI to match suggestion to available images
-            selected_image = random.choice(image_files)
+            selected_image = rnd.choice(image_files)
             console.print(f"[blue]Attaching image:[/blue] {selected_image.name}")
 
     # Post
@@ -412,21 +448,17 @@ def run(
             access_token=settings.twitter.access_token,
             access_secret=settings.twitter.access_secret,
         ) as client:
-            # Upload image if we have one
-            if media_ids is None and images_dir and images_dir.exists() and draft.suggested_image:
-                import random
+            # Upload the selected image
+            if selected_image:
+                try:
+                    media_id = client.upload_media(str(selected_image))
+                    media_ids = [media_id]
+                    console.print(f"[green]Uploaded image:[/green] {selected_image.name}")
+                except TwitterAPIError as e:
+                    console.print(f"[yellow]Failed to upload image:[/yellow] {e}")
 
-                image_files = list(images_dir.glob("*.jpg")) + list(images_dir.glob("*.png"))
-                if image_files:
-                    selected_image = random.choice(image_files)
-                    try:
-                        media_id = client.upload_media(str(selected_image))
-                        media_ids = [media_id]
-                        console.print(f"[green]Uploaded image:[/green] {selected_image.name}")
-                    except TwitterAPIError as e:
-                        console.print(f"[yellow]Failed to upload image:[/yellow] {e}")
-
-            if draft.is_thread and len(draft.thread_parts) > 1:
+            # Check if threads are allowed
+            if draft.is_thread and len(draft.thread_parts) > 1 and settings.poster.allow_threads:
                 # Post as thread
                 tweets = client.post_thread(draft.thread_parts, media_ids_first=media_ids)
                 console.print(f"\n[green]Posted thread![/green] {len(tweets)} tweets")
@@ -439,12 +471,19 @@ def run(
                     source_title=f"Topic: {topic}",
                 )
             else:
-                # Post single tweet
-                tweet = client.post_tweet(draft.content, media_ids=media_ids)
+                # Post single tweet (or first part if threads disabled)
+                content_to_post = draft.content
+                if draft.is_thread and draft.thread_parts and not settings.poster.allow_threads:
+                    content_to_post = draft.thread_parts[0]
+                    console.print(
+                        "[yellow]Threads disabled - posting first part only[/yellow]"
+                    )
+
+                tweet = client.post_tweet(content_to_post, media_ids=media_ids)
                 console.print(f"\n[green]Posted![/green] Tweet ID: {tweet.id}")
                 state_manager.record_tweet(
                     tweet.id,
-                    draft.content,
+                    content_to_post,
                     None,  # No source URL
                     source_title=f"Topic: {topic}",
                 )
@@ -484,6 +523,7 @@ def daemon(
     def run_cycle() -> None:
         """Run a single posting cycle."""
         import random
+        from zoneinfo import ZoneInfo
 
         # Topic-based Generation (Generalist Mode)
         try:
@@ -493,6 +533,27 @@ def daemon(
 
             state_manager = StateManager(settings.state_file)
             state = state_manager.load()  # Load latest state
+
+            # Check poster daily limit
+            tz = ZoneInfo(settings.schedule.timezone)
+            today_start = datetime.now(tz).replace(hour=0, minute=0, second=0, microsecond=0)
+
+            posts_today = 0
+            for tweet in state.posted_tweets:
+                try:
+                    posted_at = datetime.fromisoformat(tweet.posted_at)
+                    if posted_at.tzinfo is None:
+                        posted_at = posted_at.replace(tzinfo=UTC)
+                    if posted_at.astimezone(tz) >= today_start:
+                        posts_today += 1
+                except Exception:
+                    continue
+
+            if posts_today >= settings.poster.max_per_day:
+                logging.info(
+                    f"Poster daily limit reached ({posts_today}/{settings.poster.max_per_day})"
+                )
+                return
 
             # Select topic with rotation (avoid recently used topics)
             topic = state_manager.select_topic_with_rotation(settings.scoring.boost_topics)
@@ -530,7 +591,8 @@ def daemon(
                         except TwitterAPIError as e:
                             logging.warning(f"Failed to upload image: {e}")
 
-                if draft.is_thread and len(draft.thread_parts) > 1:
+                allow_threads = settings.poster.allow_threads
+                if draft.is_thread and len(draft.thread_parts) > 1 and allow_threads:
                     # Post as thread
                     tweets = client.post_thread(draft.thread_parts, media_ids_first=media_ids)
                     logging.info(f"Posted thread with {len(tweets)} tweets")
@@ -541,12 +603,17 @@ def daemon(
                         source_title=f"Topic: {topic}",
                     )
                 else:
-                    # Post single tweet
-                    tweet = client.post_tweet(draft.content, media_ids=media_ids)
+                    # Post single tweet (or first part if threads disabled)
+                    content_to_post = draft.content
+                    if draft.is_thread and draft.thread_parts and not settings.poster.allow_threads:
+                        content_to_post = draft.thread_parts[0]
+                        logging.info("Threads disabled - posting first part only")
+
+                    tweet = client.post_tweet(content_to_post, media_ids=media_ids)
                     logging.info(f"Posted tweet: {tweet.id}")
                     state_manager.record_tweet(
                         tweet.id,
-                        draft.content,
+                        content_to_post,
                         None,  # No source URL
                         source_title=f"Topic: {topic}",
                     )
@@ -740,6 +807,337 @@ def dry_run_cmd(
             console.print(f"[blue]Image suggestion:[/blue] {draft.suggested_image}")
 
         console.print()
+
+
+# ============================================================================
+# REPLY BOT COMMANDS
+# ============================================================================
+
+
+@app.command(name="reply-watch")
+def reply_watch(
+    headless: Annotated[
+        bool, typer.Option("--headless", help="Run browser in headless mode")
+    ] = False,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Generate replies but don't post")
+    ] = False,
+    config_path: Annotated[
+        Path | None, typer.Option("--config", "-c", help="Config file")
+    ] = None,
+) -> None:
+    """Watch timeline and reply to high-scoring tweets (local daemon)."""
+    import asyncio
+
+    settings = get_config(config_path)
+
+    if not settings.reply.enabled:
+        console.print("[yellow]Reply bot is disabled in config[/yellow]")
+        console.print("Set 'reply.enabled: true' in config.yaml to enable.")
+        return
+
+    console.print("[blue]Starting reply watcher...[/blue]")
+    console.print(f"  Max replies/day: {settings.reply.max_per_day}")
+    console.print(f"  Score threshold: {settings.reply.score_threshold}")
+    console.print(f"  Watch interval: {settings.reply.watch_interval_seconds}s")
+    console.print(f"  Min delay between replies: {settings.reply.min_delay_seconds}s")
+    console.print(f"  Headless: {headless}")
+    console.print(f"  Dry run: {dry_run}")
+    console.print("\n[dim]Press Ctrl+C to stop[/dim]\n")
+
+    asyncio.run(_watch_and_reply(settings, headless, dry_run))
+
+
+async def _watch_and_reply(settings: Settings, headless: bool, dry_run: bool) -> None:
+    """Async watch loop for reply bot."""
+    from twitter_bot.browser import StealthBrowser, TimelineWatcher
+    from twitter_bot.reply import ReplyGenerator, TweetScorer
+
+    state_manager = StateManager(settings.state_file)
+    scorer = TweetScorer(settings.reply, settings.scoring.boost_topics, state_manager)
+
+    # Set up LLM provider and generator
+    provider = get_llm_provider(settings)
+    voice_profile = ""
+    if settings.profile.voice_file:
+        voice_path = Path(settings.profile.voice_file).expanduser()
+        if voice_path.exists():
+            voice_profile = voice_path.read_text()
+
+    generator = ReplyGenerator(provider, voice_profile, state_manager)
+    cookies_path = Path(settings.reply.cookies_path).expanduser()
+
+    async with StealthBrowser(cookies_path, headless=headless) as browser:
+        # Ensure logged in
+        if not await browser.ensure_logged_in():
+            console.print("[red]Could not log in to Twitter[/red]")
+            return
+
+        console.print("[green]Logged in! Starting watch...[/green]")
+
+        watcher = TimelineWatcher(browser, state_manager)
+
+        async def on_new_tweets(tweets) -> None:
+            """Handle new tweets from timeline."""
+            # Check daily limit
+            today_count = state_manager.get_replies_today_count(settings.schedule.timezone)
+            if today_count >= settings.reply.max_per_day:
+                max_day = settings.reply.max_per_day
+                console.print(
+                    f"[yellow]Daily limit reached ({today_count}/{max_day})[/yellow]"
+                )
+                return
+
+            # Check delay since last reply
+            if not state_manager.can_reply_now(settings.reply.min_delay_seconds):
+                console.print("[dim]Too soon since last reply, waiting...[/dim]")
+                return
+
+            # Score and filter tweets
+            ranked = scorer.filter_and_rank(tweets)
+            if not ranked:
+                console.print("[dim]No tweets passed scoring threshold[/dim]")
+                return
+
+            # Take best tweet
+            best_tweet, score = ranked[0]
+            console.print(f"\n[cyan]Found candidate (score: {score:.2f}):[/cyan]")
+            console.print(f"  @{best_tweet.author_handle}: {best_tweet.content[:80]}...")
+
+            # Generate reply
+            reply_text, reply_type = generator.generate_reply(best_tweet)
+            console.print(f"[green]Generated ({reply_type}):[/green] {reply_text}")
+
+            if dry_run:
+                console.print("[yellow]DRY RUN - not posting[/yellow]")
+                return
+
+            # Post reply via API
+            try:
+                with TwitterClient(
+                    api_key=settings.twitter.api_key,
+                    api_secret=settings.twitter.api_secret,
+                    access_token=settings.twitter.access_token,
+                    access_secret=settings.twitter.access_secret,
+                ) as client:
+                    result = client.post_reply(reply_text, best_tweet.tweet_id)
+                    console.print(f"[green]Posted![/green] Tweet ID: {result.id}")
+
+                    # Record the reply
+                    state_manager.record_reply(
+                        RepliedTweet(
+                            original_tweet_id=best_tweet.tweet_id,
+                            original_author=best_tweet.author_handle,
+                            original_content=best_tweet.content[:500],
+                            reply_tweet_id=result.id,
+                            reply_content=reply_text,
+                            reply_type=reply_type,
+                            replied_at=datetime.now(UTC).isoformat(),
+                        )
+                    )
+
+            except TwitterAPIError as e:
+                console.print(f"[red]Failed to post reply:[/red] {e}")
+
+        # Start watching
+        await watcher.watch(
+            interval=settings.reply.watch_interval_seconds,
+            on_new_tweets=on_new_tweets,
+        )
+
+
+@app.command(name="reply-once")
+def reply_once(
+    headless: Annotated[
+        bool, typer.Option("--headless", help="Run browser in headless mode")
+    ] = False,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Generate reply but don't post")
+    ] = False,
+    config_path: Annotated[
+        Path | None, typer.Option("--config", "-c", help="Config file")
+    ] = None,
+) -> None:
+    """Scrape timeline once, generate and post one reply, then exit."""
+    import asyncio
+
+    settings = get_config(config_path)
+
+    if not settings.reply.enabled:
+        console.print("[yellow]Reply bot is disabled in config[/yellow]")
+        return
+
+    console.print("[blue]Running single reply cycle...[/blue]")
+    asyncio.run(_reply_once(settings, headless, dry_run))
+
+
+async def _reply_once(settings: Settings, headless: bool, dry_run: bool) -> None:
+    """Single reply cycle."""
+    from twitter_bot.browser import StealthBrowser, TimelineWatcher
+    from twitter_bot.reply import ReplyGenerator, TweetScorer
+
+    state_manager = StateManager(settings.state_file)
+    scorer = TweetScorer(settings.reply, settings.scoring.boost_topics, state_manager)
+
+    provider = get_llm_provider(settings)
+    voice_profile = ""
+    if settings.profile.voice_file:
+        voice_path = Path(settings.profile.voice_file).expanduser()
+        if voice_path.exists():
+            voice_profile = voice_path.read_text()
+
+    generator = ReplyGenerator(provider, voice_profile, state_manager)
+    cookies_path = Path(settings.reply.cookies_path).expanduser()
+
+    async with StealthBrowser(cookies_path, headless=headless) as browser:
+        if not await browser.ensure_logged_in():
+            console.print("[red]Could not log in to Twitter[/red]")
+            return
+
+        console.print("[green]Logged in! Scraping timeline...[/green]")
+
+        watcher = TimelineWatcher(browser, state_manager)
+        tweets = await watcher.scrape_once()
+
+        if not tweets:
+            console.print("[yellow]No tweets found on timeline[/yellow]")
+            return
+
+        console.print(f"[blue]Found {len(tweets)} tweets[/blue]")
+
+        # Score and filter
+        ranked = scorer.filter_and_rank(tweets)
+
+        if not ranked:
+            console.print("[yellow]No tweets passed scoring threshold[/yellow]")
+            console.print("\nTop 3 tweets by score (below threshold):")
+            all_scored = [(t, scorer.score(t)) for t in tweets]
+            all_scored.sort(key=lambda x: x[1], reverse=True)
+            for tweet, score in all_scored[:3]:
+                console.print(f"  [{score:.2f}] @{tweet.author_handle}: {tweet.content[:60]}...")
+            return
+
+        console.print(f"[green]{len(ranked)} tweets passed threshold[/green]")
+
+        # Show top candidates
+        console.print("\n[bold]Top candidates:[/bold]")
+        for tweet, score in ranked[:5]:
+            console.print(f"  [{score:.2f}] @{tweet.author_handle}: {tweet.content[:60]}...")
+
+        # Generate reply for best tweet
+        best_tweet, score = ranked[0]
+        console.print(f"\n[cyan]Selected (score: {score:.2f}):[/cyan]")
+        console.print(f"  @{best_tweet.author_handle}")
+        console.print(f"  {best_tweet.content}")
+
+        reply_text, reply_type = generator.generate_reply(best_tweet)
+        console.print(f"\n[green]Generated ({reply_type}):[/green]")
+        console.print(f"  {reply_text}")
+        console.print(f"  [dim]({len(reply_text)} chars)[/dim]")
+
+        if dry_run:
+            console.print("\n[yellow]DRY RUN - not posting[/yellow]")
+            return
+
+        # Confirm before posting
+        if not typer.confirm("\nPost this reply?"):
+            console.print("[yellow]Cancelled[/yellow]")
+            return
+
+        # Post
+        try:
+            with TwitterClient(
+                api_key=settings.twitter.api_key,
+                api_secret=settings.twitter.api_secret,
+                access_token=settings.twitter.access_token,
+                access_secret=settings.twitter.access_secret,
+            ) as client:
+                result = client.post_reply(reply_text, best_tweet.tweet_id)
+                console.print(f"\n[green]Posted![/green] Tweet ID: {result.id}")
+
+                state_manager.record_reply(
+                    RepliedTweet(
+                        original_tweet_id=best_tweet.tweet_id,
+                        original_author=best_tweet.author_handle,
+                        original_content=best_tweet.content[:500],
+                        reply_tweet_id=result.id,
+                        reply_content=reply_text,
+                        reply_type=reply_type,
+                        replied_at=datetime.now(UTC).isoformat(),
+                    )
+                )
+
+        except TwitterAPIError as e:
+            console.print(f"[red]Failed to post:[/red] {e}")
+            raise typer.Exit(EXIT_API_ERROR) from None
+
+
+@app.command(name="reply-status")
+def reply_status(
+    config_path: Annotated[
+        Path | None, typer.Option("--config", "-c", help="Config file")
+    ] = None,
+) -> None:
+    """Show reply bot status and today's replies."""
+    settings = get_config(config_path)
+    state_manager = StateManager(settings.state_file)
+
+    console.print("\n[bold]Reply Bot Status[/bold]\n")
+
+    # Config
+    config_table = Table(title="Configuration")
+    config_table.add_column("Setting", style="cyan")
+    config_table.add_column("Value")
+
+    enabled_str = "[green]Yes[/green]" if settings.reply.enabled else "[red]No[/red]"
+    config_table.add_row("Enabled", enabled_str)
+    config_table.add_row("Max replies/day", str(settings.reply.max_per_day))
+    config_table.add_row("Min delay (sec)", str(settings.reply.min_delay_seconds))
+    config_table.add_row("Score threshold", f"{settings.reply.score_threshold:.2f}")
+    config_table.add_row("Watch interval", f"{settings.reply.watch_interval_seconds}s")
+    config_table.add_row("Cookies path", settings.reply.cookies_path)
+
+    console.print(config_table)
+
+    # Today's stats
+    today_count = state_manager.get_replies_today_count(settings.schedule.timezone)
+    state = state_manager.load()
+
+    stats_table = Table(title="\nToday's Stats")
+    stats_table.add_column("Metric", style="cyan")
+    stats_table.add_column("Value")
+
+    stats_table.add_row("Replies today", f"{today_count}/{settings.reply.max_per_day}")
+    stats_table.add_row("Total replies (all time)", str(len(state.replied_tweets)))
+    stats_table.add_row("Last reply", state.last_reply_at or "Never")
+
+    # Can reply now?
+    can_reply = state_manager.can_reply_now(settings.reply.min_delay_seconds)
+    can_str = "[green]Yes[/green]" if can_reply else "[yellow]Waiting[/yellow]"
+    stats_table.add_row("Can reply now", can_str)
+
+    console.print(stats_table)
+
+    # Recent replies
+    recent = state_manager.get_recent_replies(5)
+    if recent:
+        console.print("\n[bold]Recent Replies[/bold]")
+        for reply in reversed(recent):
+            console.print(f"\n  [dim]{reply.replied_at}[/dim]")
+            console.print(f"  To @{reply.original_author}: {reply.original_content[:50]}...")
+            console.print(f"  [green]↳[/green] ({reply.reply_type}) {reply.reply_content[:60]}...")
+
+    # Reply type distribution
+    if state.reply_type_history:
+        console.print("\n[bold]Reply Type Distribution (last 20)[/bold]")
+        recent_types = state.reply_type_history[-20:]
+        from collections import Counter
+
+        counts = Counter(recent_types)
+        for rtype in ["expert", "contrarian", "question", "story", "simplifier"]:
+            count = counts.get(rtype, 0)
+            bar = "█" * count
+            console.print(f"  {rtype:12} {bar} ({count})")
 
 
 if __name__ == "__main__":

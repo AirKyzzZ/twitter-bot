@@ -67,6 +67,7 @@ class GroqProvider(LLMProvider):
         """Generate multiple completions."""
         results = []
         temperatures = [0.7, 0.8, 0.9, 1.0, 1.1][:n]
+        last_error: Exception | None = None
 
         for temp in temperatures:
             try:
@@ -95,10 +96,13 @@ class GroqProvider(LLMProvider):
                             model=self.model_name,
                         )
                     )
-            except Exception:
-                continue
+            except httpx.HTTPStatusError as e:
+                last_error = LLMProviderError(f"Groq API error: {e.response.text}")
+            except Exception as e:
+                last_error = e
 
         if not results:
-            raise LLMProviderError("All Groq generation attempts failed")
+            error_detail = f": {last_error}" if last_error else ""
+            raise LLMProviderError(f"All Groq generation attempts failed{error_detail}")
 
         return results

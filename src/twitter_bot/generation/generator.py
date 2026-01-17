@@ -2,8 +2,8 @@
 
 import random
 import re
-from difflib import SequenceMatcher
 from dataclasses import dataclass, field
+from difflib import SequenceMatcher
 from pathlib import Path
 
 from twitter_bot.generation.provider import LLMProvider

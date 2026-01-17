@@ -206,10 +206,28 @@ scoring:
     - "dating"
 
 schedule:
-  # Twitter free tier: 50 posts/day max, using 40 to account for threads
+  # Twitter free tier: 50 posts/day max, split between poster and reply bot
   tweets_per_day: 40
   active_hours: "07:00-23:00"
   timezone: "Europe/Paris"
+
+# Reply Bot Configuration (NEW - Local execution)
+reply:
+  enabled: true
+  max_per_day: 40  # 40 replies/day budget
+  min_delay_seconds: 120  # 2 min between replies
+  max_delay_seconds: 300  # 5 min max
+  target_min_followers: 1000
+  target_max_followers: 500000
+  min_engagement_score: 5
+  score_threshold: 0.6  # Min score to consider replying
+  watch_interval_seconds: 45  # How often to check timeline
+  cookies_path: "~/.twitter-bot/cookies.json"
+
+# Poster Bot Configuration (reduced to free up API calls)
+poster:
+  max_per_day: 10  # 10 single tweets/day
+  allow_threads: false  # No threads to save API calls
 
 # LLM Configuration
 groq_api_key: "${GROQ_API_KEY}"

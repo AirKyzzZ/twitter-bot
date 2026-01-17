@@ -3,7 +3,7 @@
 import hashlib
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from twitter_bot.exceptions import StateError
@@ -22,6 +22,19 @@ class PostedTweet:
 
 
 @dataclass
+class RepliedTweet:
+    """Record of a reply to another tweet."""
+
+    original_tweet_id: str
+    original_author: str
+    original_content: str
+    reply_tweet_id: str
+    reply_content: str
+    reply_type: str  # expert, contrarian, question, story, simplifier
+    replied_at: str  # ISO format
+
+
+@dataclass
 class State:
     """Application state."""
 
@@ -30,6 +43,11 @@ class State:
     processed_urls: set[str] = field(default_factory=set)
     recent_topics: list[str] = field(default_factory=list)  # Track last N topics
     last_run: str | None = None
+    # Reply bot state
+    replied_tweets: list[RepliedTweet] = field(default_factory=list)
+    replied_tweet_ids: set[str] = field(default_factory=set)
+    reply_type_history: list[str] = field(default_factory=list)  # For rotation
+    last_reply_at: str | None = None
 
 
 class StateManager:
@@ -57,12 +75,18 @@ class StateManager:
                 data = json.load(f)
 
             posted_tweets = [PostedTweet(**tweet) for tweet in data.get("posted_tweets", [])]
+            replied_tweets = [RepliedTweet(**tweet) for tweet in data.get("replied_tweets", [])]
             self._state = State(
                 posted_tweets=posted_tweets,
                 content_hashes=set(data.get("content_hashes", [])),
                 processed_urls=set(data.get("processed_urls", [])),
                 recent_topics=data.get("recent_topics", []),
                 last_run=data.get("last_run"),
+                # Reply bot state
+                replied_tweets=replied_tweets,
+                replied_tweet_ids=set(data.get("replied_tweet_ids", [])),
+                reply_type_history=data.get("reply_type_history", []),
+                last_reply_at=data.get("last_reply_at"),
             )
             return self._state
         except json.JSONDecodeError as e:
@@ -93,6 +117,22 @@ class StateManager:
             "processed_urls": list(self._state.processed_urls),
             "recent_topics": self._state.recent_topics,
             "last_run": self._state.last_run,
+            # Reply bot state
+            "replied_tweets": [
+                {
+                    "original_tweet_id": r.original_tweet_id,
+                    "original_author": r.original_author,
+                    "original_content": r.original_content,
+                    "reply_tweet_id": r.reply_tweet_id,
+                    "reply_content": r.reply_content,
+                    "reply_type": r.reply_type,
+                    "replied_at": r.replied_at,
+                }
+                for r in self._state.replied_tweets
+            ],
+            "replied_tweet_ids": list(self._state.replied_tweet_ids),
+            "reply_type_history": self._state.reply_type_history,
+            "last_reply_at": self._state.last_reply_at,
         }
 
         try:
@@ -193,3 +233,95 @@ class StateManager:
             fresh_topics = available_topics
 
         return random.choice(fresh_topics)
+
+    # Reply bot methods
+
+    def is_tweet_replied(self, tweet_id: str) -> bool:
+        """Check if we've already replied to this tweet."""
+        state = self.load()
+        return tweet_id in state.replied_tweet_ids
+
+    def record_reply(self, replied: RepliedTweet) -> None:
+        """Record a reply to a tweet."""
+        state = self.load()
+        state.replied_tweets.append(replied)
+        state.replied_tweet_ids.add(replied.original_tweet_id)
+        state.reply_type_history.append(replied.reply_type)
+        # Keep only last 50 reply types for rotation
+        state.reply_type_history = state.reply_type_history[-50:]
+        state.last_reply_at = replied.replied_at
+        self.save()
+
+    def get_replies_today_count(self, timezone: str = "UTC") -> int:
+        """Get the number of replies posted today in the given timezone."""
+        from zoneinfo import ZoneInfo
+
+        state = self.load()
+        try:
+            local_tz = ZoneInfo(timezone)
+        except Exception:
+            local_tz = UTC
+
+        now = datetime.now(local_tz)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        count = 0
+        for reply in state.replied_tweets:
+            try:
+                replied_at = datetime.fromisoformat(reply.replied_at)
+                # Assume UTC if no timezone info
+                if replied_at.tzinfo is None:
+                    replied_at = replied_at.replace(tzinfo=UTC)
+                replied_local = replied_at.astimezone(local_tz)
+                if replied_local >= today_start:
+                    count += 1
+            except Exception:
+                continue
+        return count
+
+    def get_next_reply_type(self) -> str:
+        """Get the next reply type, rotating through available types."""
+        reply_types = ["expert", "contrarian", "question", "story", "simplifier"]
+        state = self.load()
+
+        if not state.reply_type_history:
+            # First reply - start with expert
+            return reply_types[0]
+
+        # Count recent usage (last 10)
+        recent = state.reply_type_history[-10:]
+        counts = {t: recent.count(t) for t in reply_types}
+
+        # Pick the least used type
+        min_count = min(counts.values())
+        least_used = [t for t, c in counts.items() if c == min_count]
+
+        # If multiple tied, avoid the most recent one
+        if len(least_used) > 1 and state.reply_type_history:
+            last_type = state.reply_type_history[-1]
+            least_used = [t for t in least_used if t != last_type] or least_used
+
+        import random
+
+        return random.choice(least_used)
+
+    def can_reply_now(self, min_delay_seconds: int) -> bool:
+        """Check if enough time has passed since the last reply."""
+        state = self.load()
+        if state.last_reply_at is None:
+            return True
+
+        try:
+            last_reply = datetime.fromisoformat(state.last_reply_at)
+            # Ensure timezone-aware comparison
+            if last_reply.tzinfo is None:
+                last_reply = last_reply.replace(tzinfo=UTC)
+            elapsed = (datetime.now(UTC) - last_reply).total_seconds()
+            return elapsed >= min_delay_seconds
+        except Exception:
+            return True
+
+    def get_recent_replies(self, limit: int = 10) -> list[RepliedTweet]:
+        """Get the most recent replies."""
+        state = self.load()
+        return state.replied_tweets[-limit:]

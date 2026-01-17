@@ -241,6 +241,94 @@ class TwitterClient:
         except Exception as e:
             raise TwitterAPIError(f"Failed to parse response: {e}") from e
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=60),
+        reraise=True,
+    )
+    def post_reply(self, text: str, in_reply_to_tweet_id: str) -> Tweet:
+        """Post a reply to a tweet.
+
+        Args:
+            text: Reply text (max 280 characters)
+            in_reply_to_tweet_id: ID of the tweet to reply to
+
+        Returns:
+            Tweet object with id and text
+
+        Raises:
+            TwitterAPIError: If posting fails
+        """
+        if len(text) > 280:
+            raise TwitterAPIError("Reply exceeds 280 characters")
+
+        url = f"{self.BASE_URL}/tweets"
+        headers = self._get_oauth1_header("POST", url)
+        headers["Content-Type"] = "application/json"
+
+        payload = {
+            "text": text,
+            "reply": {"in_reply_to_tweet_id": in_reply_to_tweet_id},
+        }
+
+        try:
+            response = self._client.post(
+                url,
+                headers=headers,
+                json=payload,
+            )
+        except httpx.HTTPError as e:
+            raise TwitterAPIError(f"HTTP error posting reply: {e}") from e
+
+        if response.status_code == 429:
+            reset_time = response.headers.get("x-rate-limit-reset")
+            if reset_time:
+                import time
+
+                wait_seconds = int(reset_time) - int(time.time())
+                if wait_seconds > 0:
+                    import logging
+
+                    logging.warning(f"Rate limit exceeded, waiting {wait_seconds} seconds")
+                    time.sleep(wait_seconds)
+                    response = self._client.post(
+                        url,
+                        headers=headers,
+                        json=payload,
+                    )
+                    if response.status_code == 201:
+                        data = response.json()
+                        tweet_data = data.get("data", {})
+                        return Tweet(
+                            id=tweet_data.get("id", ""),
+                            text=tweet_data.get("text", text),
+                        )
+            raise TwitterAPIError("Rate limit exceeded", status_code=429)
+
+        if response.status_code == 403:
+            raise TwitterAPIError("Forbidden - check API permissions", status_code=403)
+
+        if response.status_code != 201:
+            try:
+                error_data = response.json()
+                error_msg = error_data.get("detail", response.text)
+            except Exception:
+                error_msg = response.text
+            raise TwitterAPIError(
+                f"Failed to post reply: {error_msg}",
+                status_code=response.status_code,
+            )
+
+        try:
+            data = response.json()
+            tweet_data = data.get("data", {})
+            return Tweet(
+                id=tweet_data.get("id", ""),
+                text=tweet_data.get("text", text),
+            )
+        except Exception as e:
+            raise TwitterAPIError(f"Failed to parse response: {e}") from e
+
     def post_thread(
         self,
         tweets: list[str],
