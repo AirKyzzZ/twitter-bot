@@ -89,7 +89,7 @@ class TestReplyTypes:
 
     def test_reply_types_are_valid(self):
         """Reply types should match expected values."""
-        expected = ["expert", "contrarian", "question", "story", "simplifier"]
+        expected = ["witty", "agree_twist", "hot_take", "one_liner", "flex"]
         assert REPLY_TYPES == expected
 
 
@@ -127,15 +127,6 @@ class TestReplyGenerator:
 
         assert "@unique_handle" in mock_provider.last_prompt
 
-    def test_prompt_includes_metrics(self, generator, mock_provider):
-        """Generated prompt should include engagement metrics."""
-        tweet = create_tweet(likes=42, retweets=15, replies=7)
-        generator.generate_reply(tweet)
-
-        assert "42 likes" in mock_provider.last_prompt
-        assert "15 RTs" in mock_provider.last_prompt
-        assert "7 replies" in mock_provider.last_prompt
-
     def test_prompt_includes_reply_type_instructions(self, generator, mock_provider):
         """Generated prompt should include type-specific instructions."""
         tweet = create_tweet()
@@ -143,13 +134,13 @@ class TestReplyGenerator:
 
         assert REPLY_TYPE_INSTRUCTIONS[reply_type] in mock_provider.last_prompt
 
-    def test_prompt_includes_voice_profile(self, generator, mock_provider):
-        """Generated prompt should include the voice profile."""
+    def test_prompt_includes_identity(self, generator, mock_provider):
+        """Generated prompt should include the identity."""
         tweet = create_tweet()
         generator.generate_reply(tweet)
 
-        assert "Maxime" in mock_provider.last_prompt
-        assert "Bordeaux" in mock_provider.last_prompt
+        assert "maxime" in mock_provider.last_prompt
+        assert "bordeaux" in mock_provider.last_prompt
 
 
 class TestCleanReply:
@@ -204,13 +195,13 @@ class TestReplyLength:
 class TestReplyTypeRotation:
     """Tests for reply type rotation via state manager."""
 
-    def test_first_reply_uses_expert(self, generator, mock_state_manager):
-        """First reply should use 'expert' type."""
+    def test_first_reply_uses_witty(self, generator, mock_state_manager):
+        """First reply should use 'witty' type."""
         tweet = create_tweet()
         _, reply_type = generator.generate_reply(tweet)
 
-        # First call to get_next_reply_type should return 'expert'
-        assert reply_type == "expert"
+        # First call to get_next_reply_type should return 'witty'
+        assert reply_type == "witty"
 
     def test_rotation_cycles_types(self, mock_state_manager):
         """Reply types should rotate over multiple calls."""

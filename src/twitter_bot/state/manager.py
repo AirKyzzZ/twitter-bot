@@ -30,7 +30,7 @@ class RepliedTweet:
     original_content: str
     reply_tweet_id: str
     reply_content: str
-    reply_type: str  # expert, contrarian, question, story, simplifier
+    reply_type: str  # witty, agree_twist, hot_take, one_liner, flex
     replied_at: str  # ISO format
 
 
@@ -281,11 +281,11 @@ class StateManager:
 
     def get_next_reply_type(self) -> str:
         """Get the next reply type, rotating through available types."""
-        reply_types = ["expert", "contrarian", "question", "story", "simplifier"]
+        reply_types = ["witty", "agree_twist", "hot_take", "one_liner", "flex"]
         state = self.load()
 
         if not state.reply_type_history:
-            # First reply - start with expert
+            # First reply - start with witty
             return reply_types[0]
 
         # Count recent usage (last 10)

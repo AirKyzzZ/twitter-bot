@@ -112,18 +112,25 @@ class StealthBrowser:
         if not self.page:
             return False
 
-        await self.page.goto("https://twitter.com/home", wait_until="networkidle")
-        await self.random_delay(2, 4)
+        # Use x.com (where cookies are) and don't wait for networkidle (Twitter never stops)
+        await self.page.goto("https://x.com/home", wait_until="domcontentloaded")
+        await self.random_delay(3, 5)
 
-        # Check for login indicators - the compose tweet button
-        logged_in_selector = '[data-testid="SideNav_NewTweet_Button"]'
-        try:
-            element = await self.page.wait_for_selector(logged_in_selector, timeout=5000)
-            if element:
-                logger.info("Already logged in to Twitter")
-                return True
-        except Exception:
-            pass
+        # Check for login indicators - the compose tweet button or primary column
+        logged_in_selectors = [
+            '[data-testid="SideNav_NewTweet_Button"]',
+            '[data-testid="primaryColumn"]',
+            '[aria-label="Home timeline"]',
+        ]
+
+        for selector in logged_in_selectors:
+            try:
+                element = await self.page.wait_for_selector(selector, timeout=5000)
+                if element:
+                    logger.info("Already logged in to Twitter")
+                    return True
+            except Exception:
+                continue
 
         # Not logged in - prompt for manual login
         print("\n" + "=" * 60)
@@ -138,16 +145,17 @@ class StealthBrowser:
         await asyncio.get_running_loop().run_in_executor(None, input)
 
         # Check again
-        await self.page.goto("https://twitter.com/home", wait_until="networkidle")
-        await self.random_delay(2, 4)
+        await self.page.goto("https://x.com/home", wait_until="domcontentloaded")
+        await self.random_delay(3, 5)
 
-        try:
-            element = await self.page.wait_for_selector(logged_in_selector, timeout=10000)
-            if element:
-                logger.info("Successfully logged in to Twitter")
-                return True
-        except Exception:
-            pass
+        for selector in logged_in_selectors:
+            try:
+                element = await self.page.wait_for_selector(selector, timeout=10000)
+                if element:
+                    logger.info("Successfully logged in to Twitter")
+                    return True
+            except Exception:
+                continue
 
         logger.error("Failed to verify login")
         return False

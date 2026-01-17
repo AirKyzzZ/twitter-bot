@@ -246,7 +246,7 @@ class TimelineWatcher:
             return
 
         # Navigate to home timeline
-        await self.browser.page.goto("https://twitter.com/home", wait_until="networkidle")
+        await self.browser.page.goto("https://x.com/home", wait_until="domcontentloaded")
         await self.browser.random_delay(2, 4)
 
         logger.info(f"Starting timeline watch (interval: {interval}s)")
@@ -293,7 +293,7 @@ class TimelineWatcher:
             return []
 
         # Navigate to home timeline
-        await self.browser.page.goto("https://twitter.com/home", wait_until="networkidle")
+        await self.browser.page.goto("https://x.com/home", wait_until="domcontentloaded")
         await self.browser.random_delay(2, 4)
 
         # Scroll down a few times to load more tweets

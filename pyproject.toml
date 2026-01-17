@@ -17,6 +17,7 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "playwright>=1.40.0",
     "playwright-stealth>=1.0.0",
+    "browser-cookie3>=0.20.1",
 ]
 
 [project.scripts]

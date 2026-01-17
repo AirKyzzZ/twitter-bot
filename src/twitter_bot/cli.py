@@ -1134,10 +1134,130 @@ def reply_status(
         from collections import Counter
 
         counts = Counter(recent_types)
-        for rtype in ["expert", "contrarian", "question", "story", "simplifier"]:
+        for rtype in ["witty", "agree_twist", "hot_take", "one_liner", "flex"]:
             count = counts.get(rtype, 0)
             bar = "█" * count
             console.print(f"  {rtype:12} {bar} ({count})")
+
+
+@app.command()
+def export_cookies(
+    browser: str = typer.Option(
+        "chrome",
+        "--browser",
+        "-b",
+        help="Browser to export from (chrome, firefox, edge, safari)",
+    ),
+    config_path: Annotated[
+        Path | None,
+        typer.Option("--config", "-c", help="Config file"),
+    ] = None,
+) -> None:
+    """Export Twitter cookies from your browser (no login needed)."""
+    import json
+
+    try:
+        import browser_cookie3
+    except ImportError:
+        console.print("[red]Error:[/red] browser_cookie3 not installed")
+        console.print("Run: uv add browser-cookie3")
+        raise typer.Exit(EXIT_ERROR)
+
+    settings = get_config(config_path)
+    cookies_path = Path(settings.reply.cookies_path).expanduser()
+    cookies_path.parent.mkdir(parents=True, exist_ok=True)
+
+    console.print(f"[blue]Exporting Twitter cookies from {browser}...[/blue]")
+    console.print("[dim]Make sure the browser is closed for best results.[/dim]\n")
+
+    try:
+        # Get browser cookie jar
+        if browser == "chrome":
+            cj = browser_cookie3.chrome(domain_name=".x.com")
+        elif browser == "firefox":
+            cj = browser_cookie3.firefox(domain_name=".x.com")
+        elif browser == "edge":
+            cj = browser_cookie3.edge(domain_name=".x.com")
+        elif browser == "safari":
+            cj = browser_cookie3.safari(domain_name=".x.com")
+        else:
+            console.print(f"[red]Unknown browser:[/red] {browser}")
+            raise typer.Exit(EXIT_ERROR)
+
+        # Convert to Playwright format
+        playwright_cookies = []
+        for cookie in cj:
+            playwright_cookies.append({
+                "name": cookie.name,
+                "value": cookie.value,
+                "domain": cookie.domain,
+                "path": cookie.path,
+                "expires": cookie.expires or -1,
+                "httpOnly": bool(cookie._rest.get("HttpOnly", False)),
+                "secure": cookie.secure,
+                "sameSite": "Lax",
+            })
+
+        if not playwright_cookies:
+            # Also try twitter.com domain
+            if browser == "chrome":
+                cj = browser_cookie3.chrome(domain_name=".twitter.com")
+            elif browser == "firefox":
+                cj = browser_cookie3.firefox(domain_name=".twitter.com")
+            elif browser == "edge":
+                cj = browser_cookie3.edge(domain_name=".twitter.com")
+            elif browser == "safari":
+                cj = browser_cookie3.safari(domain_name=".twitter.com")
+
+            for cookie in cj:
+                playwright_cookies.append({
+                    "name": cookie.name,
+                    "value": cookie.value,
+                    "domain": cookie.domain,
+                    "path": cookie.path,
+                    "expires": cookie.expires or -1,
+                    "httpOnly": bool(cookie._rest.get("HttpOnly", False)),
+                    "secure": cookie.secure,
+                    "sameSite": "Lax",
+                })
+
+        if not playwright_cookies:
+            console.print("[red]No Twitter cookies found![/red]")
+            console.print("\nMake sure you are logged into Twitter/X in your browser.")
+            raise typer.Exit(EXIT_ERROR)
+
+        # Check for auth cookie
+        auth_cookies = [c for c in playwright_cookies if c["name"] in ("auth_token", "ct0")]
+        if len(auth_cookies) < 2:
+            console.print("[yellow]Warning:[/yellow] Missing some auth cookies.")
+            console.print("You may need to log in again in your browser.")
+
+        # Save cookies
+        cookies_path.write_text(json.dumps(playwright_cookies, indent=2))
+        console.print(f"[green]Exported {len(playwright_cookies)} cookies![/green]")
+        console.print(f"Saved to: {cookies_path}")
+
+        # Show key cookies found
+        cookie_names = {c["name"] for c in playwright_cookies}
+        key_cookies = ["auth_token", "ct0", "twid"]
+        found = [c for c in key_cookies if c in cookie_names]
+        console.print(f"\nKey cookies found: {', '.join(found) or 'none'}")
+
+        if "auth_token" in cookie_names:
+            console.print("\n[green]Ready to use![/green] Run:")
+            console.print("  [cyan]uv run twitter-bot reply-once --dry-run[/cyan]")
+        else:
+            console.print("\n[yellow]Missing auth_token - you may need to log in to Twitter first.[/yellow]")
+
+    except PermissionError:
+        console.print("[red]Permission denied![/red]")
+        console.print(f"\nClose {browser.title()} completely and try again.")
+        console.print("On macOS, you may need to grant Terminal full disk access:")
+        console.print("  System Settings → Privacy & Security → Full Disk Access")
+        raise typer.Exit(EXIT_ERROR)
+    except Exception as e:
+        console.print(f"[red]Error exporting cookies:[/red] {e}")
+        raise typer.Exit(EXIT_ERROR)
 
 
 if __name__ == "__main__":
