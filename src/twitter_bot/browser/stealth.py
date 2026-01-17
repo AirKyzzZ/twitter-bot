@@ -179,5 +179,5 @@ class StealthBrowser:
     async def refresh(self) -> None:
         """Refresh the current page."""
         if self.page:
-            await self.page.reload(wait_until="networkidle")
-            await self.random_delay(1, 2)
+            await self.page.reload(wait_until="domcontentloaded")
+            await self.random_delay(2, 4)
