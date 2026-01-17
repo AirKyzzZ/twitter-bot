@@ -39,6 +39,12 @@ EXIT_API_ERROR = 3
 EXIT_NO_CONTENT = 4
 
 
+def is_rate_limit_error(error: Exception) -> bool:
+    """Check if error is a rate limit (should exit gracefully)."""
+    error_str = str(error).lower()
+    return any(x in error_str for x in ["rate limit", "rate_limit", "429", "quota", "too many"])
+
+
 def setup_logging(verbosity: int) -> None:
     """Configure logging based on verbosity level."""
     if verbosity >= 2:
@@ -163,6 +169,9 @@ def draft(
         generator = TweetGenerator(provider, voice_profile, recent_tweets)
         drafts = generator.generate_drafts(source_content, url, n=count)
     except LLMProviderError as e:
+        if is_rate_limit_error(e):
+            console.print(f"[yellow]Rate limited, try again later:[/yellow] {e}")
+            raise typer.Exit(EXIT_SUCCESS) from None
         console.print(f"[red]LLM error:[/red] {e}")
         raise typer.Exit(EXIT_API_ERROR) from None
 
@@ -244,6 +253,9 @@ def post(
         generator = TweetGenerator(provider, voice_profile, recent_tweets)
         draft = generator.generate_single(source_content, source_url)
     except LLMProviderError as e:
+        if is_rate_limit_error(e):
+            console.print(f"[yellow]Rate limited, try again later:[/yellow] {e}")
+            raise typer.Exit(EXIT_SUCCESS) from None
         console.print(f"[red]LLM error:[/red] {e}")
         raise typer.Exit(EXIT_API_ERROR) from None
 
@@ -408,6 +420,9 @@ def run(
         generator = TweetGenerator(provider, voice_profile, recent_tweets)
         draft = generator.generate_from_topic(topic)
     except LLMProviderError as e:
+        if is_rate_limit_error(e):
+            console.print(f"[yellow]Rate limited, skipping this cycle:[/yellow] {e}")
+            raise typer.Exit(EXIT_SUCCESS) from None
         console.print(f"[red]LLM error:[/red] {e}")
         raise typer.Exit(EXIT_API_ERROR) from None
 
@@ -785,6 +800,9 @@ def dry_run_cmd(
 
         generator = TweetGenerator(provider, voice_profile, recent_tweets)
     except LLMProviderError as e:
+        if is_rate_limit_error(e):
+            console.print(f"[yellow]Rate limited, try again later:[/yellow] {e}")
+            raise typer.Exit(EXIT_SUCCESS) from None
         console.print(f"[red]LLM error:[/red] {e}")
         raise typer.Exit(EXIT_API_ERROR) from None
 
