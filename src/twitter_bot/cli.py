@@ -1310,6 +1310,7 @@ async def _human_watch_loop(
     scroll_only_chance: float,
 ) -> None:
     """Human-like browser watch loop - 100% browser, no API."""
+    import asyncio
     import random
 
     from twitter_bot.browser import BrowserReplyPoster, StealthBrowser, TimelineWatcher
