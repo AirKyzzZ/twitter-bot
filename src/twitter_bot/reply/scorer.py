@@ -12,10 +12,11 @@ logger = logging.getLogger(__name__)
 class TweetScorer:
     """Scores tweets for reply potential."""
 
-    # Scoring weights
-    WEIGHT_TOPIC = 0.35
-    WEIGHT_ENGAGEMENT = 0.30
-    WEIGHT_FOLLOWERS = 0.20
+    # Scoring weights - DATA-DRIVEN adjustments
+    # Followers increased: big accounts (50k+) give 10x more impressions
+    WEIGHT_TOPIC = 0.30
+    WEIGHT_ENGAGEMENT = 0.25
+    WEIGHT_FOLLOWERS = 0.30  # Increased from 0.20 - big accounts = more visibility
     WEIGHT_RECENCY = 0.15
 
     def __init__(
@@ -116,7 +117,10 @@ class TweetScorer:
         return min(1.0, 0.3 + matches * 0.2)
 
     def _score_follower_range(self, followers: int) -> float:
-        """Score based on follower count - sweet spot is 5K-100K.
+        """Score based on follower count.
+
+        DATA-DRIVEN: Your top replies were to accounts with 10k-500k followers.
+        Big accounts (50k+) give 10x more visibility than small accounts.
 
         Args:
             followers: Author's follower count
@@ -125,17 +129,26 @@ class TweetScorer:
             Score between 0.0 and 1.0
         """
         if followers < self.config.target_min_followers:
-            return 0.3  # Too small - less visibility
+            return 0.2  # Too small - low visibility
 
-        if followers > self.config.target_max_followers:
-            return 0.4  # Too big - harder to get noticed
-
-        # Sweet spot: 5K-100K followers
-        if 5000 <= followers <= 100000:
+        # GOLD TIER: 50K-500K (your top performing replies target this range)
+        if 50000 <= followers <= 500000:
             return 1.0
 
-        # Good range but not optimal
-        return 0.7
+        # SILVER TIER: 10K-50K (good visibility, easier to get noticed)
+        if 10000 <= followers < 50000:
+            return 0.85
+
+        # BRONZE TIER: 5K-10K (decent, good for networking)
+        if 5000 <= followers < 10000:
+            return 0.7
+
+        # MEGA TIER: 500K+ (huge visibility but competitive)
+        if followers > 500000:
+            return 0.75  # Still good, just more competitive
+
+        # 1K-5K: Acceptable but low priority
+        return 0.5
 
     def filter_and_rank(
         self,

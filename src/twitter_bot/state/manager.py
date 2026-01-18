@@ -285,17 +285,35 @@ class StateManager:
         return count
 
     def get_next_reply_type(self) -> str:
-        """Get the next reply type, rotating through available types."""
-        reply_types = ["witty", "agree_twist", "hot_take", "one_liner", "flex"]
+        """Get the next reply type, rotating through available types.
+
+        DATA-DRIVEN: Updated types based on analytics showing what performs:
+        - hype_reaction: Best for breaking news (2287 impressions top)
+        - contrarian: Challenge assumptions (1841 impressions top)
+        - french: For French accounts (2847 impressions top!)
+        """
+        # Updated reply types based on analytics - exclude "french" from rotation
+        # (french is triggered by language detection, not rotation)
+        reply_types = [
+            "hype_reaction",  # Excitement about news/releases
+            "contrarian",     # Skeptical/challenging takes
+            "witty",          # Quick humor/observation
+            "question",       # Follow-up questions
+            "one_liner",      # Minimal 2-5 words
+            "hot_take",       # Spicy opinions
+            "value_add",      # Share perspective
+        ]
         state = self.load()
 
         if not state.reply_type_history:
-            # First reply - start with witty
+            # First reply - start with hype (performs well)
             return reply_types[0]
 
-        # Count recent usage (last 10)
-        recent = state.reply_type_history[-10:]
-        counts = {t: recent.count(t) for t in reply_types}
+        # Count recent usage (last 14 to cover all types)
+        recent = state.reply_type_history[-14:]
+        # Filter to only count known types (handles old types gracefully)
+        recent_known = [t for t in recent if t in reply_types]
+        counts = {t: recent_known.count(t) for t in reply_types}
 
         # Pick the least used type
         min_count = min(counts.values())

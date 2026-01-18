@@ -22,31 +22,26 @@ class TweetDraft:
 
 
 # Tweet format types for variety
+# DATA-DRIVEN: Short punchy content massively outperforms threads (14x more reach)
 SHORT_FORMATS = [
-    "hot_take",
-    "controversial",
-    "one_liner",
-    "unpopular_opinion",
-    "observation",
+    "hot_take",          # Spicy opinion on current tech news
+    "observation",       # Quick insight from building/shipping
+    "one_liner",         # 1-2 sentence punch
+    "reaction",          # React to news/announcement (time-sensitive)
+    "unpopular_opinion", # Contrarian view that sparks debate
 ]
 
-THREAD_FORMATS = [
-    "thread",
-    "guide",
-    "deep_dive",
-    "story",
-    "analysis",
-]
+# DISABLED: Analytics show 0 threads in top 27 performers
+THREAD_FORMATS: list[str] = []  # Threads don't work - disabled
 
 STANDARD_FORMATS = [
-    "insight",
-    "question",
-    "tip",
-    "builder_update",
-    "behind_scenes",
+    "personal_update",   # What you're building/shipping
+    "quick_tip",         # Short actionable advice
+    "question",          # Provocative question to audience
+    "behind_scenes",     # Real moment from your work
 ]
 
-TWEET_FORMATS = SHORT_FORMATS + THREAD_FORMATS + STANDARD_FORMATS
+TWEET_FORMATS = SHORT_FORMATS + STANDARD_FORMATS  # No threads
 
 
 class TweetGenerator:
@@ -93,138 +88,97 @@ class TweetGenerator:
 """)
 
         # Determine Format and Constraints
-        # We want to force variety: Short vs Thread vs Standard
-        if allow_thread:
-            # 30% chance of thread, 35% short, 35% standard
-            roll = random.random()
-            if roll < 0.3:
-                category = "THREAD"
-                suggested_format = random.choice(THREAD_FORMATS)
-            elif roll < 0.65:
-                category = "SHORT"
-                suggested_format = random.choice(SHORT_FORMATS)
-            else:
-                category = "STANDARD"
-                suggested_format = random.choice(STANDARD_FORMATS)
+        # DATA-DRIVEN: Short punchy content gets 2x more impressions than long-form
+        # Threads are DISABLED (0 threads in top 27 performers)
+        # Distribution: 70% short, 30% standard, 0% threads
+        roll = random.random()
+        if roll < 0.70:
+            category = "SHORT"
+            suggested_format = random.choice(SHORT_FORMATS)
         else:
-            # No threads allowed
-            if random.random() < 0.5:
-                category = "SHORT"
-                suggested_format = random.choice(SHORT_FORMATS)
-            else:
-                category = "STANDARD"
-                suggested_format = random.choice(STANDARD_FORMATS)
+            category = "STANDARD"
+            suggested_format = random.choice(STANDARD_FORMATS)
 
         # Add variety by rotating opening styles
+        # DATA-DRIVEN: Removed "X vs Y comparison" - it produces 7.1 avg impressions
         opening_styles = [
-            "Start with a QUESTION that challenges assumptions",
-            "Start with a PERSONAL STORY or anecdote (one sentence)",
-            "Start with a BOLD CLAIM that's slightly controversial",
-            "Start with CONCRETE NUMBERS or data",
-            "Start with a SHORT observation (under 10 words), then expand",
-            "Start by DISAGREEING with common advice",
-            "Start with something you LEARNED today",
-            "Start with a COMPARISON (X vs Y format)",
+            "Start with a SHORT provocative question",
+            "Start with a quick personal anecdote (one sentence max)",
+            "Start with a bold, slightly spicy claim",
+            "Start with a raw observation (under 15 words)",
+            "Start by calling out something that's BS",
+            "React to the news/content with your genuine take",
+            "Start with dry humor or irony",
         ]
         selected_opening = random.choice(opening_styles)
 
-        # Maxime-specific voice instructions
+        # Maxime-specific voice instructions - DATA-DRIVEN REWRITE
         prompt_parts.append(f"""## OPENING STYLE FOR THIS TWEET
 **{selected_opening}**
 
 ## WHO YOU ARE
 
-You're Maxime. 19. Bordeaux. You build shit.
+You're Maxime. 19. Bordeaux. You build stuff.
 
-**Your DNA:**
-- **Builder vs Consumer**: You believe "The future belongs to those who create." You don't wait; you build.
-- **Tech Stack**: Next.js, TypeScript, Python, K8s. You completed **Harvard CS50** while working full-time.
-- **Professional**: 
-  - **Verana**: Building the Trust Network & Visualizer.
-  - **2060.io**: Built "Concieragent" (decentralized identity/DIDComm).
-  - **Klyx**: CEO of your own web agency at 19.
-- **Community & Sport**: 
-  - Co-founder of **PKBA** (biggest parkour club in Nouvelle-Aquitaine, 60+ members).
-  - Founder of **VertiFlow** (movement brand).
-  - Active member of **GDG Bordeaux**.
+**Quick facts:**
+- Stack: Next.js, TypeScript, Python, K8s. Harvard CS50 grad.
+- Work: Verana (Trust Network), 2060.io (SSI/DIDComm), Klyx (your agency)
+- Life: Co-founded PKBA (parkour club), active in GDG Bordeaux
 
-**Your Philosophy:**
-- Parkour taught you more about risk management and discipline than any business book.
-- You balance deep tech (SSI, Cryptography) with real-world action (Parkour, Agency work).
-- You are young (19) but you're already leaving a trace.
+## YOUR ACTUAL TWITTER VOICE
 
-## YOUR VIRAL PLAYBOOK (STRICTLY FOLLOW THIS)
+Based on what ACTUALLY performs (data from your top tweets):
 
-You don't write "updates". You engineer viral assets using these proven frameworks:
+**SHORT & PUNCHY wins:**
+- "markdown files have never been more valuable" (44 impressions - 4x avg)
+- "Claude Code🐒" (58 impressions)
+- "Fun fact Claude Code is writing code for Claude Code himself 🤯" (45 impressions)
 
-1. **The E.H.A. Framework** (MANDATORY):
-   - **Emotion**: Trigger high-arousal emotions (Awe, Curiosity, Anger/Debate). Avoid "contentment".
-   - **Hook**: First line MUST stop the scroll. 
-   - **Action**: Every tweet needs a purpose (teach, provoke, or inspire).
+**News reactions work:**
+- Quick hot takes on AI releases, tool updates, industry news
+- Add your perspective, don't just summarize
 
-2. **The "You" Rule**:
-   - Use Second-Person Language.
-   - Bad: "Developers should learn rust."
-   - Good: "You need to learn Rust if you want to stay relevant."
+**Personal updates with real substance:**
+- What you're actually building
+- Real numbers, real struggles, real wins
 
-3. **Viral Sentence Patterns (STEAL THESE)**:
-       - **The Binary**: "Most people do X. The winners do Y."
-      - **The Data Flex**: "I analyzed 1,000 repos. Here's what I found:"
-      - **The Time Frame**: "How to build an MVP in 48 hours (not 4 weeks)."
-      - **The Contrarian**: "Everyone says X. They're wrong. Here's why."
-      - **The Transformation**: "At 16, I was broke. At 19, I run an agency. The blueprint:"
-   
-   ## YOUR TWEET STYLE
-   
-   VARIETY is key. You don't sound like a bot. You mix up:
-   
-   **The Challenger (Attack BS ideas)**:
-   - "Stop romanticizing complexity. If you can't explain it to a 5-year-old, you don't understand it."
-   - "Everyone is building AI wrappers. The real money is in the shovels (infrastructure)."
-   
-   **The Guide (Offer a lens/fix)**:
-   - "Here’s my 3-part framework for shipping features fast. Steal it."
-   - "The best way to learn React? Build a clone of a tool you use every day."
-   
-   **The Micro-Story (Before -> After -> Lesson)**:
-   - "At 16, I failed my first startup. At 19, I run an agency. The difference? I stopped overthinking and started shipping."
-   - "Spent 3 days debugging a race condition. It was a single line of config. Lesson: Read the docs first."
-   
-   **The "Observation" (Relatable & Insightful)**:
-   - "Parkour taught me: you either commit to the jump or you don't. Same with shipping code."
-   - "Most auth is broken because we trust servers, not users. That's why I'm building Concieragent."
-   
-   ## RULES
-   
-   1. **Clarity > Cleverness**. Simple words. Short sentences.
-   2. **Specifics > Generics**. Use real numbers (lines of code, hours, dollars).
-   3. **Sound like a 19-year-old builder**. No corporate speak.
-   4. **Take Stances on CONCEPTS, not PRODUCTS**. 
-      - Good: "Static typing saves time." (Concept)
-      - Bad: "You must use TypeScript or you will fail." (Hype)
-   5. **No Hashtags**. Never.
-   
-   ## BANNED (instant cringe)
+**Dry humor/observations:**
+- Not try-hard funny, just genuine observations
+- Irony and sarcasm when natural
 
-   - "game changer", "level up", "unlock your potential"
-   - "imagine if", "what if I told you", "here's the thing"
-   - "revolution", "beast", "insane", "wild" (unless ironic)
-   - "ahead of the curve", "left behind", "getting left behind", "FOMO"
-   - "You're about to witness", "You're about to unlock"
-   - "This proves that", "This kills the old way"
-   - "I've spent months digging", "Here's what I found"
-   - "The best part?", "But here's the catch"
-   - "What's your next move?", "Who's with me?"
-   - Anything a LinkedIn influencer would say
-   - Excessive emojis (one or zero max, and only if natural)
-   - Hashtags (never)
-   - "Let me explain:", "Thread:", "1/n"
-   - Generic motivational crap
-   - Starting with "Just" or "So"
-   - Summarizing the article like a news bot ("Just read an interesting article about...")
-   - Sounding like an ad ("This tool is amazing!"). Critiques > Praise.
-   
-   ## FORMAT SUGGESTION FOR THIS TWEET: {suggested_format.upper()}
+## WHAT DOESN'T WORK (YOUR DATA PROVES IT)
+
+These patterns average <10 impressions. NEVER use them:
+- ❌ "You're either X or Y" (72 tweets, 7.1 avg impressions - DEAD)
+- ❌ "Most people do X. The winners do Y." (46 tweets, 8.2 avg - DEAD)
+- ❌ "I've spent X hours..." (5 tweets, 7.6 avg - DEAD)
+- ❌ "Here's what I learned:" (8 tweets, 6.8 avg - DEAD)
+- ❌ Long "thought leader" threads - 0 in your top 27
+
+## RULES
+
+1. **KEEP IT SHORT.** Under 140 chars is ideal. Under 80 is gold.
+2. **Be specific.** Real projects, real numbers, real experiences.
+3. **Sound like yourself.** 19yo dev, not a LinkedIn coach.
+4. **Hot takes > generic advice.** Take a stance.
+5. **No hashtags. Ever.**
+6. **Lowercase is fine.** Matches your reply style.
+
+## BANNED PHRASES (automatic fail)
+
+- "You're either X or Y", "Most people do X. The winners..."
+- "I've spent X hours", "Here's what I learned"
+- "game changer", "level up", "unlock", "ahead of the curve"
+- "getting left behind", "This proves that", "This kills the old way"
+- "The best part?", "But here's the catch", "Who's with me?"
+- "You're about to witness", "You're about to unlock"
+- Any multi-part thread structure ("1/", "Thread:", "Here's a breakdown")
+- Summarizing content like a news bot
+- Generic motivational content
+- Excessive emojis (0-1 max)
+- Starting with "Just" or "So"
+
+## FORMAT: {suggested_format.upper()}
    
    """)
 
@@ -232,18 +186,13 @@ You don't write "updates". You engineer viral assets using these proven framewor
         if category == "SHORT":
             prompt_parts.append("""
 **CONSTRAINT: SHORT & PUNCHY**
-- Maximum 140 characters.
-- No filler words. 
-- One single, powerful thought or question.
-- Do NOT use bullet points.
+- Maximum 140 characters. Ideally under 80.
+- No filler words.
+- One single thought, observation, or question.
+- No bullet points, no lists.
+- Think: tweet you'd send to a friend, not a blog post.
 """)
-        elif category == "THREAD":
-            prompt_parts.append("""
-**CONSTRAINT: EDUCATIONAL THREAD**
-- This must be a **THREAD** (multiple tweets).
-- Go DEEP. Teach something specific.
-- Structure: Hook -> Context -> Step-by-Step -> Outcome.
-""")
+        # THREADS DISABLED - data shows 0 threads in top performers
 
         # Recent tweets context to avoid repetition - use last 15 for better coverage
         if self.recent_tweets:
@@ -268,50 +217,39 @@ CRITICAL - Your new tweet must be COMPLETELY DIFFERENT:
         if source_url:
             prompt_parts.append(f"Source: {source_url}\n")
 
-        # Thread option instructions
-        if category == "THREAD":
-            thread_instruction = """
-**THREAD STRUCTURE**:
-1. **The Hook**: Bold statement + Benefit. (e.g., "I spent 50 hours on X. Here is what I learned.")
-2. **The Meat**: Break down the concept into 3-4 actionable steps/insights.
-3. **The Cliffhangers**: End middle tweets with "open loops" (e.g., "But here's the catch...", "The best part?").
-4. **The Conclusion**: Summary + Call to Action.
-"""
-        else:
-            thread_instruction = "**SINGLE TWEET ONLY.** Do not write a thread."
+        # THREADS DISABLED - no thread instructions needed
 
         # Image suggestion
         image_instruction = ""
         if suggest_image:
             image_instruction = """
-**IMAGE SUGGESTION**: If a meme, chart, or code snippet would make this viral, add:
-[IMAGE: brief description. e.g., "Drake meme comparing X and Y" or "Chart showing growth curve"]
+**IMAGE SUGGESTION**: If a meme or screenshot would genuinely help, add:
+[IMAGE: brief description]
 """
 
-        # Final instruction
+        # Final instruction - DATA-DRIVEN rewrite
         prompt_parts.append(f"""## YOUR TASK
 
-Use the SOURCE CONTEXT as raw material.
-**CRITICAL**: Do NOT summarize.
-Instead, Pivot:
-- "This proves..."
-- "I've been saying this for months..."
-- "Here is the code implication..."
-- "This kills the old way of..."
+Use the SOURCE CONTEXT as inspiration (not to summarize).
 
-Identify the core topic.
-{thread_instruction}
+**DO:**
+- Extract ONE interesting angle or hot take
+- React with YOUR genuine perspective
+- Keep it SHORT (under 140 chars ideal, under 80 gold)
+- Sound like you're texting a dev friend
+
+**DON'T:**
+- Summarize the content like a news bot
+- Use any banned patterns ("You're either...", "Most people...", etc.)
+- Write a thread or multi-part post
+- Sound like a LinkedIn thought leader
+- Force an SSI angle unless it's actually about identity
+
 {image_instruction}
 
-Write a tweet (or thread) that:
-- Fits the constraints above ({category} format)
-- Uses the **E.H.A. Framework**
-- Uses **Second-Person ("You")** language
-- Takes a **Strong, Binary Stance**
+**SINGLE TWEET ONLY.** Keep it {category.lower()}.
 
-IMPORTANT: Do NOT force an SSI (Self-Sovereign Identity) angle unless the source is explicitly about identity.
-
-Output ONLY the tweet text (or THREAD: format). No quotes. No explanation.""")
+Output ONLY the tweet text. No quotes. No explanation. No meta-commentary.""")
 
         return "\n".join(prompt_parts)
 
@@ -398,21 +336,40 @@ Output ONLY the tweet text (or THREAD: format). No quotes. No explanation.""")
         )
 
     # Overused phrases to detect and reject
+    # DATA-DRIVEN: These patterns average <10 impressions
     OVERUSED_PATTERNS = [
+        # The deadly "Binary" pattern (7.1 avg impressions across 72 tweets)
+        r"you're either .+ or",
+        r"most people .+\. the winners",
+        r"most people .+\. you",
+        r"most devs .+\. the winners",
+        r"most developers .+\. the winners",
+        # The "Data Flex" pattern
+        r"i've spent \d+ hours",
+        r"i've analyzed \d+",
+        r"i analyzed \d+",
+        r"here's what i learned",
+        r"here's what i've learned",
+        r"here's what i found",
+        # LinkedIn energy
         r"you're about to witness",
         r"you're about to unlock",
         r"this proves that",
         r"this kills the old way",
-        r"you're either .+ or getting left behind",
         r"getting left behind",
         r"ahead of the curve",
-        r"i've spent months digging",
-        r"here's what i found",
         r"the best part\?",
         r"but here's the catch",
         r"what's your next move",
         r"who's with me\?",
         r"let me explain",
+        r"game.?changer",
+        r"level up",
+        r"unlock your",
+        # Thread starters (threads don't work) - use \s* to handle leading whitespace
+        r"^\s*thread:",
+        r"^\s*\d+[/.]",
+        r"^\s*1\)",
     ]
 
     def _is_too_similar(self, content: str, threshold: float = 0.5) -> bool:

@@ -211,25 +211,29 @@ schedule:
   active_hours: "07:00-23:00"
   timezone: "Europe/Paris"
 
-# Reply Bot Configuration (NEW - Local execution)
+# Reply Bot Configuration
+# DATA-DRIVEN: Replies get 14x more impressions than original tweets
+# Focus on big accounts (50k+) for visibility, French tweets for cultural edge
 reply:
   enabled: true
   max_per_day: 100  # 100 replies/day budget
   min_delay_seconds: 120  # 2 min between replies (safe spacing)
   max_delay_seconds: 300  # 5 min max
   target_min_followers: 1000
-  target_max_followers: 500000
+  target_max_followers: 1000000  # Increased - big accounts perform well
   min_engagement_score: 5
-  score_threshold: 0.55  # Slightly lower to find more eligible tweets
+  score_threshold: 0.50  # Lowered to find more opportunities
   watch_interval_seconds: 45  # How often to check timeline
   cookies_path: "~/.twitter-bot/cookies.json"
   browser_post_ratio: 0.2  # 20% of replies via browser (more natural)
   fallback_to_api: true  # Fallback to API if browser fails
 
-# Poster Bot Configuration (reduced to free up API calls)
+# Poster Bot Configuration
+# DATA-DRIVEN: Threads disabled permanently (0 threads in top 27 performers)
+# Focus on short punchy content (70% short, 30% standard)
 poster:
   max_per_day: 10  # 10 single tweets/day
-  allow_threads: false  # No threads to save API calls
+  allow_threads: false  # DISABLED - data shows threads don't perform
 
 # LLM Configuration
 groq_api_key: "${GROQ_API_KEY}"
