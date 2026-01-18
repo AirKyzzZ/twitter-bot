@@ -307,3 +307,100 @@ class TimelineWatcher:
 
         logger.info(f"Scraped {len(all_tweets)} total tweets")
         return all_tweets
+
+    async def like_tweet(self, tweet: ScrapedTweet) -> bool:
+        """Like a tweet by clicking its like button.
+
+        Args:
+            tweet: The tweet to like
+
+        Returns:
+            True if like succeeded, False otherwise
+        """
+        if not self.browser.page:
+            return False
+
+        try:
+            # Find the tweet element by looking for the status link
+            tweet_selector = f'a[href*="/status/{tweet.tweet_id}"]'
+            tweet_link = await self.browser.page.query_selector(tweet_selector)
+
+            if not tweet_link:
+                logger.debug(f"Could not find tweet {tweet.tweet_id} on page")
+                return False
+
+            # Find the parent tweet container
+            tweet_el = await tweet_link.evaluate_handle(
+                """el => {
+                    let parent = el;
+                    while (parent && !parent.getAttribute('data-testid')?.includes('tweet')) {
+                        parent = parent.parentElement;
+                    }
+                    return parent;
+                }"""
+            )
+
+            if not tweet_el:
+                return False
+
+            # Find and click the like button within this tweet
+            like_btn = await tweet_el.as_element().query_selector('[data-testid="like"]')
+            if not like_btn:
+                # Maybe already liked - check for unlike button
+                unlike_btn = await tweet_el.as_element().query_selector('[data-testid="unlike"]')
+                if unlike_btn:
+                    logger.debug(f"Tweet {tweet.tweet_id} already liked")
+                    return True
+                return False
+
+            # Human-like delay before clicking
+            await self.browser.random_delay(0.3, 0.8)
+            await like_btn.click()
+            await self.browser.random_delay(0.5, 1.0)
+
+            logger.info(f"Liked tweet {tweet.tweet_id} by @{tweet.author_handle}")
+            return True
+
+        except Exception as e:
+            logger.debug(f"Failed to like tweet {tweet.tweet_id}: {e}")
+            return False
+
+    async def like_tweet_on_page(self, tweet_id: str) -> bool:
+        """Like a tweet that's currently visible on the page.
+
+        Args:
+            tweet_id: The tweet ID to like
+
+        Returns:
+            True if like succeeded
+        """
+        if not self.browser.page:
+            return False
+
+        try:
+            # Find all tweets and look for the one with this ID
+            tweet_elements = await self.browser.page.query_selector_all('[data-testid="tweet"]')
+
+            for el in tweet_elements:
+                link = await el.query_selector(f'a[href*="/status/{tweet_id}"]')
+                if link:
+                    # Found the tweet, now click like
+                    like_btn = await el.query_selector('[data-testid="like"]')
+                    if like_btn:
+                        await self.browser.random_delay(0.2, 0.5)
+                        await like_btn.click()
+                        await self.browser.random_delay(0.3, 0.7)
+                        logger.info(f"Liked tweet {tweet_id}")
+                        return True
+                    else:
+                        # Check if already liked
+                        unlike_btn = await el.query_selector('[data-testid="unlike"]')
+                        if unlike_btn:
+                            logger.debug(f"Tweet {tweet_id} already liked")
+                            return True
+                    break
+
+            return False
+        except Exception as e:
+            logger.debug(f"Failed to like tweet {tweet_id}: {e}")
+            return False

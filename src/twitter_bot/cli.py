@@ -1248,6 +1248,273 @@ def reply_status(
             console.print(f"  {rtype:12} {bar} ({count})")
 
 
+@app.command(name="reply-human")
+def reply_human(
+    headless: Annotated[
+        bool, typer.Option("--headless", help="Run browser in headless mode")
+    ] = False,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Generate replies but don't post")
+    ] = False,
+    like_chance: Annotated[
+        float, typer.Option("--like-chance", help="Chance to like good tweets (0-1)")
+    ] = 0.3,
+    reply_chance: Annotated[
+        float, typer.Option("--reply-chance", help="Chance to reply to qualifying tweets (0-1)")
+    ] = 0.4,
+    scroll_only_chance: Annotated[
+        float, typer.Option("--scroll-only", help="Chance to just scroll without action (0-1)")
+    ] = 0.3,
+    config_path: Annotated[
+        Path | None, typer.Option("--config", "-c", help="Config file")
+    ] = None,
+) -> None:
+    """Browser-only reply mode with human-like behavior. No API usage.
+
+    This mode mimics natural human Twitter behavior:
+    - Sometimes just scrolls and reads tweets
+    - Sometimes likes interesting tweets
+    - Sometimes replies to high-scoring tweets
+    - Variable delays to simulate reading time
+    - Never uses the Twitter API for posting
+    """
+    import asyncio
+
+    settings = get_config(config_path)
+
+    if not settings.reply.enabled:
+        console.print("[yellow]Reply bot is disabled in config[/yellow]")
+        return
+
+    console.print("[blue]Starting human-like browser mode...[/blue]")
+    console.print(f"  Like chance: {like_chance:.0%}")
+    console.print(f"  Reply chance: {reply_chance:.0%}")
+    console.print(f"  Scroll-only chance: {scroll_only_chance:.0%}")
+    console.print(f"  Headless: {headless}")
+    console.print(f"  Dry run: {dry_run}")
+    console.print("\n[dim]100% browser-based - no API calls[/dim]")
+    console.print("[dim]Press Ctrl+C to stop[/dim]\n")
+
+    asyncio.run(_human_watch_loop(
+        settings, headless, dry_run,
+        like_chance, reply_chance, scroll_only_chance
+    ))
+
+
+async def _human_watch_loop(
+    settings: Settings,
+    headless: bool,
+    dry_run: bool,
+    like_chance: float,
+    reply_chance: float,
+    scroll_only_chance: float,
+) -> None:
+    """Human-like browser watch loop - 100% browser, no API."""
+    import random
+
+    from twitter_bot.browser import BrowserReplyPoster, StealthBrowser, TimelineWatcher
+    from twitter_bot.reply import ReplyGenerator, TweetScorer
+
+    state_manager = StateManager(settings.state_file)
+    scorer = TweetScorer(settings.reply, settings.scoring.boost_topics, state_manager)
+
+    # Set up LLM provider and generator
+    provider = get_llm_provider(settings)
+    voice_profile = ""
+    if settings.profile.voice_file:
+        voice_path = Path(settings.profile.voice_file).expanduser()
+        if voice_path.exists():
+            voice_profile = voice_path.read_text()
+
+    generator = ReplyGenerator(provider, voice_profile, state_manager)
+    cookies_path = Path(settings.reply.cookies_path).expanduser()
+
+    async with StealthBrowser(cookies_path, headless=headless) as browser:
+        if not await browser.ensure_logged_in():
+            console.print("[red]Could not log in to Twitter[/red]")
+            return
+
+        console.print("[green]Logged in! Starting human-like browsing...[/green]")
+
+        watcher = TimelineWatcher(browser, state_manager)
+        poster = BrowserReplyPoster(browser)
+
+        # Navigate to home
+        await browser.page.goto("https://x.com/home", wait_until="domcontentloaded")
+        await browser.random_delay(2, 4)
+
+        cycle_count = 0
+        liked_this_session = set()
+
+        while True:
+            try:
+                cycle_count += 1
+                console.print(f"\n[dim]── Cycle {cycle_count} ──[/dim]")
+
+                # Decide what to do this cycle
+                action_roll = random.random()
+
+                if action_roll < scroll_only_chance:
+                    # Just scroll and "read" - human browsing behavior
+                    console.print("[dim]📜 Just browsing...[/dim]")
+                    scroll_amount = random.randint(200, 600)
+                    await browser.scroll_down(scroll_amount)
+
+                    # Simulate reading time (2-8 seconds)
+                    read_time = random.uniform(2, 8)
+                    await asyncio.sleep(read_time)
+
+                    # Sometimes scroll a bit more
+                    if random.random() < 0.4:
+                        await browser.scroll_down(random.randint(100, 300))
+                        await asyncio.sleep(random.uniform(1, 3))
+
+                    # Refresh after a while
+                    if cycle_count % 5 == 0:
+                        await browser.scroll_to_top()
+                        await browser.refresh()
+
+                    continue
+
+                # Scrape visible tweets
+                await browser.scroll_down(random.randint(150, 400))
+                await browser.random_delay(1, 2)
+                tweets = await watcher.scrape_visible_tweets()
+
+                if not tweets:
+                    console.print("[dim]No new tweets visible[/dim]")
+                    await browser.random_delay(3, 6)
+                    continue
+
+                # Score tweets
+                scored_tweets = [(t, scorer.score(t)) for t in tweets if not t.is_retweet]
+                scored_tweets.sort(key=lambda x: x[1], reverse=True)
+
+                if not scored_tweets:
+                    continue
+
+                # Maybe like some tweets (human behavior)
+                for tweet, score in scored_tweets[:5]:
+                    if tweet.tweet_id in liked_this_session:
+                        continue
+
+                    # Higher score = higher chance to like
+                    like_threshold = like_chance * (0.5 + score)
+                    if random.random() < like_threshold and score > 0.3:
+                        # Simulate "reading" the tweet before liking
+                        read_delay = len(tweet.content) / 50  # ~50 chars per second
+                        await asyncio.sleep(min(read_delay, 4))
+
+                        if await watcher.like_tweet_on_page(tweet.tweet_id):
+                            console.print(f"[red]❤️ Liked[/red] @{tweet.author_handle}: {tweet.content[:40]}...")
+                            liked_this_session.add(tweet.tweet_id)
+                            await browser.random_delay(1, 3)
+
+                            # Don't like too many in a row
+                            if random.random() < 0.6:
+                                break
+
+                # Check if we should try to reply
+                if random.random() > reply_chance:
+                    console.print("[dim]Skipping reply this cycle[/dim]")
+                    await browser.random_delay(5, 15)
+                    continue
+
+                # Check daily limit
+                today_count = state_manager.get_replies_today_count(settings.schedule.timezone)
+                if today_count >= settings.reply.max_per_day:
+                    console.print(f"[yellow]Daily limit reached ({today_count})[/yellow]")
+                    await browser.random_delay(30, 60)
+                    continue
+
+                # Check delay since last reply
+                if not state_manager.can_reply_now(settings.reply.min_delay_seconds):
+                    console.print("[dim]Too soon since last reply[/dim]")
+                    await browser.random_delay(10, 30)
+                    continue
+
+                # Filter for reply candidates
+                ranked = scorer.filter_and_rank(tweets)
+                if not ranked:
+                    console.print("[dim]No tweets passed reply threshold[/dim]")
+                    await browser.random_delay(5, 10)
+                    continue
+
+                # Pick from top candidates (not always the best one)
+                top_n = min(3, len(ranked))
+                selected_idx = random.choices(range(top_n), weights=[3, 2, 1][:top_n])[0]
+                best_tweet, score = ranked[selected_idx]
+
+                console.print(f"\n[cyan]Found candidate (score: {score:.2f}):[/cyan]")
+                console.print(f"  @{best_tweet.author_handle}: {best_tweet.content[:80]}...")
+
+                # Simulate reading and thinking before replying
+                think_time = random.uniform(3, 8)
+                console.print(f"[dim]Thinking for {think_time:.1f}s...[/dim]")
+                await asyncio.sleep(think_time)
+
+                # Generate reply
+                reply_text, reply_type = generator.generate_reply(best_tweet)
+                console.print(f"[green]Generated ({reply_type}):[/green] {reply_text}")
+
+                if dry_run:
+                    console.print("[yellow]DRY RUN - not posting[/yellow]")
+                    await browser.random_delay(5, 10)
+                    continue
+
+                # Post via browser only
+                console.print("[dim]Posting via browser...[/dim]")
+                success, error = await poster.post_reply(best_tweet, reply_text)
+
+                if success:
+                    console.print("[green]✓ Posted via browser![/green]")
+
+                    # Record the reply
+                    state_manager.record_reply(
+                        RepliedTweet(
+                            original_tweet_id=best_tweet.tweet_id,
+                            original_author=best_tweet.author_handle,
+                            original_content=best_tweet.content[:500],
+                            reply_tweet_id="browser-posted",
+                            reply_content=reply_text,
+                            reply_type=reply_type,
+                            replied_at=datetime.now(UTC).isoformat(),
+                            posting_method="browser",
+                        )
+                    )
+                    state_manager.record_posting_method("browser")
+
+                    # Return to timeline
+                    await poster.return_to_timeline()
+
+                    # Longer delay after posting (human would take a break)
+                    break_time = random.uniform(60, 180)
+                    console.print(f"[dim]Taking a break ({break_time:.0f}s)...[/dim]")
+                    await asyncio.sleep(break_time)
+                else:
+                    console.print(f"[red]Browser post failed:[/red] {error}")
+                    await browser.random_delay(10, 30)
+
+                # Scroll back and refresh occasionally
+                if cycle_count % 3 == 0:
+                    await browser.scroll_to_top()
+                    await browser.random_delay(2, 4)
+                    await browser.refresh()
+
+                # Variable wait between cycles
+                wait_time = random.uniform(20, 60)
+                console.print(f"[dim]Next check in {wait_time:.0f}s...[/dim]")
+                await asyncio.sleep(wait_time)
+
+            except asyncio.CancelledError:
+                console.print("\n[yellow]Stopping human mode...[/yellow]")
+                break
+            except Exception as e:
+                console.print(f"[red]Error:[/red] {e}")
+                logging.exception("Human watch loop error")
+                await asyncio.sleep(30)
+
+
 @app.command()
 def export_cookies(
     browser: str = typer.Option(
