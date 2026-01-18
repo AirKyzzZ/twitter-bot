@@ -946,6 +946,12 @@ async def _watch_and_reply(settings: Settings, headless: bool, dry_run: bool) ->
 
             # Generate reply
             reply_text, reply_type = generator.generate_reply(best_tweet)
+
+            # Skip if tweet was filtered (non-English or incomplete reply)
+            if reply_text is None:
+                console.print("[yellow]Skipped (non-English or couldn't generate complete reply)[/yellow]")
+                return
+
             console.print(f"[green]Generated ({reply_type}):[/green] {reply_text}")
 
             if dry_run:
@@ -1105,6 +1111,12 @@ async def _reply_once(settings: Settings, headless: bool, dry_run: bool) -> None
         console.print(f"  {best_tweet.content}")
 
         reply_text, reply_type = generator.generate_reply(best_tweet)
+
+        # Skip if tweet was filtered (non-English or incomplete reply)
+        if reply_text is None:
+            console.print("[yellow]Skipped (non-English or couldn't generate complete reply)[/yellow]")
+            return
+
         console.print(f"\n[green]Generated ({reply_type}):[/green]")
         console.print(f"  {reply_text}")
         console.print(f"  [dim]({len(reply_text)} chars)[/dim]")
@@ -1456,6 +1468,13 @@ async def _human_watch_loop(
 
                 # Generate reply
                 reply_text, reply_type = generator.generate_reply(best_tweet)
+
+                # Skip if tweet was filtered (non-English or incomplete reply)
+                if reply_text is None:
+                    console.print("[yellow]Skipped (non-English or couldn't generate complete reply)[/yellow]")
+                    await browser.random_delay(5, 10)
+                    continue
+
                 console.print(f"[green]Generated ({reply_type}):[/green] {reply_text}")
 
                 if dry_run:

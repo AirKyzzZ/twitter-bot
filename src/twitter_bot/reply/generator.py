@@ -9,24 +9,31 @@ from twitter_bot.state.manager import StateManager
 
 logger = logging.getLogger(__name__)
 
-# French language indicators for detecting French tweets
-# Used to trigger French replies which perform 2-3x better on French accounts
-FRENCH_INDICATORS = [
+# Non-English language indicators for filtering out non-English tweets
+# We only want to reply to English tweets
+NON_ENGLISH_INDICATORS = [
+    # French
     'mec', 'mdr', 'ptdr', 'ptn', 'trop', "c'est", "j'ai", 'vraiment',
-    'quoi', 'comme', 'très', 'alors', 'mais', 'putain', 'grave', 'tkt'
+    'quoi', 'comme', 'très', 'alors', 'mais', 'putain', 'grave', 'tkt',
+    'merci', 'bonjour', 'salut', 'pourquoi', 'parce', 'avoir', 'être',
+    # Spanish
+    'está', 'qué', 'esto', 'porque', 'también', 'gracias', 'hola',
+    # German
+    'nicht', 'auch', 'sind', 'wenn', 'haben', 'werden',
+    # Portuguese
+    'você', 'não', 'isso', 'também', 'porque', 'obrigado',
 ]
 
 # Available reply types for rotation
 # DATA-DRIVEN: Added types based on top-performing replies from analytics
 REPLY_TYPES = [
-    "hype_reaction",  # NEW: Excitement about news/releases (2287 impressions top)
-    "contrarian",     # NEW: Challenge or skeptical take (1841 impressions top)
+    "hype_reaction",  # Excitement about news/releases (2287 impressions top)
+    "contrarian",     # Challenge or skeptical take (1841 impressions top)
     "witty",          # Quick joke/observation
-    "question",       # NEW: Follow-up question (triggers engagement)
+    "question",       # Follow-up question (triggers engagement)
     "one_liner",      # Minimal 2-5 words
     "hot_take",       # Spicy opinion
-    "value_add",      # Share perspective/experience (renamed from flex)
-    "french",         # NEW: French reply for French accounts (2847 impressions top)
+    "value_add",      # Share perspective/experience
 ]
 
 # Instructions for each reply type - DATA-DRIVEN examples from top performers
@@ -78,13 +85,6 @@ Examples from YOUR top tweets:
 - "I mean, you still need to add some additional value to AI's power because if you don't, you'll just get replaced" (879 impressions)
 - "really good model for design great integration too" (20 impressions)
 Add genuine insight, not braggy flex.""",
-
-    "french": """Reply in French for French-speaking accounts.
-Examples from YOUR top tweets:
-- "mon rêve j'ai trop hâte" (2847 impressions!)
-- "ptn mec linkedin s'y met aussi c'est terrible" (422 impressions)
-- "la phrase commençait bien comment t'as tout whippin par pitié" (504 impressions)
-Use natural French slang (mec, ptn, mdr). Short and punchy.""",
 }
 
 
@@ -108,41 +108,61 @@ class ReplyGenerator:
         self.voice_profile = voice_profile
         self.state = state
 
-    def generate_reply(self, tweet: ScrapedTweet) -> tuple[str, str]:
+    def is_english_tweet(self, tweet: ScrapedTweet) -> bool:
+        """Check if a tweet is in English.
+
+        Args:
+            tweet: The tweet to check
+
+        Returns:
+            True if the tweet appears to be in English
+        """
+        content_lower = tweet.content.lower()
+        non_english_matches = sum(
+            1 for word in NON_ENGLISH_INDICATORS
+            if f' {word} ' in f' {content_lower} ' or content_lower.startswith(f'{word} ')
+        )
+        # If 2+ non-English indicators found, it's likely not English
+        return non_english_matches < 2
+
+    def generate_reply(self, tweet: ScrapedTweet) -> tuple[str, str] | tuple[None, None]:
         """Generate a reply for a tweet.
 
         Args:
             tweet: The tweet to reply to
 
         Returns:
-            Tuple of (reply_text, reply_type)
+            Tuple of (reply_text, reply_type) or (None, None) if tweet should be skipped
         """
-        # Detect French tweets - prioritize French replies (they perform 2-3x better)
-        # Require 2+ matches to avoid false positives (e.g., "non" in "non-blocking")
-        content_lower = tweet.content.lower()
-        french_matches = sum(1 for word in FRENCH_INDICATORS if word in content_lower)
-        is_french_tweet = french_matches >= 2
+        # Skip non-English tweets
+        if not self.is_english_tweet(tweet):
+            logger.info(f"Skipping non-English tweet from @{tweet.author_handle}")
+            return None, None
 
-        if is_french_tweet:
-            # 70% chance to reply in French for French tweets (high performance)
-            if random.random() < 0.7:
-                reply_type = "french"
-                logger.info(f"Detected French tweet, using French reply type")
-            else:
-                reply_type = self.state.get_next_reply_type()
-        else:
-            # Get next reply type from rotation
-            reply_type = self.state.get_next_reply_type()
+        # Get next reply type from rotation
+        reply_type = self.state.get_next_reply_type()
 
         # Build the prompt
         prompt = self._build_prompt(tweet, reply_type)
 
-        # Generate reply
+        # Generate reply with higher token limit to ensure complete sentences
         logger.debug(f"Generating {reply_type} reply for tweet {tweet.tweet_id}")
-        result = self.provider.generate(prompt, max_tokens=150)
+        result = self.provider.generate(prompt, max_tokens=200)
 
         # Clean up the reply
         reply = self._clean_reply(result.text)
+
+        # Check for incomplete sentences and regenerate if needed
+        if self._is_incomplete(reply):
+            logger.warning(f"Reply appears incomplete: '{reply}', regenerating...")
+            # Try once more with explicit completion instruction
+            result = self.provider.generate(prompt + "\n\nIMPORTANT: Write a COMPLETE sentence.", max_tokens=200)
+            reply = self._clean_reply(result.text)
+
+            # If still incomplete, skip this tweet
+            if self._is_incomplete(reply):
+                logger.warning(f"Reply still incomplete after retry, skipping")
+                return None, None
 
         # Validate length
         if len(reply) > 280:
@@ -151,6 +171,61 @@ class ReplyGenerator:
 
         logger.info(f"Generated {reply_type} reply: {reply[:50]}...")
         return reply, reply_type
+
+    def _is_incomplete(self, text: str) -> bool:
+        """Check if a reply appears to be cut off mid-sentence.
+
+        Args:
+            text: The reply text to check
+
+        Returns:
+            True if the reply appears incomplete
+        """
+        if not text or len(text) < 3:
+            return True
+
+        text = text.strip()
+
+        # Check for obvious truncation patterns
+        truncation_indicators = [
+            text.endswith('-'),
+            text.endswith('...') and len(text) < 15,  # Very short with ellipsis
+            text.endswith(' the'),
+            text.endswith(' a'),
+            text.endswith(' an'),
+            text.endswith(' to'),
+            text.endswith(' is'),
+            text.endswith(' are'),
+            text.endswith(' was'),
+            text.endswith(' were'),
+            text.endswith(' have'),
+            text.endswith(' has'),
+            text.endswith(' will'),
+            text.endswith(' would'),
+            text.endswith(' could'),
+            text.endswith(' should'),
+            text.endswith(' can'),
+            text.endswith(' and'),
+            text.endswith(' but'),
+            text.endswith(' or'),
+            text.endswith(' of'),
+            text.endswith(' in'),
+            text.endswith(' on'),
+            text.endswith(' at'),
+            text.endswith(' for'),
+            text.endswith(' with'),
+            text.endswith(' by'),
+            text.endswith(' that'),
+            text.endswith(' this'),
+            text.endswith(' it'),
+            text.endswith(" i"),
+            text.endswith(" i'"),
+            text.endswith(" you"),
+            text.endswith(" they"),
+            text.endswith(" we"),
+        ]
+
+        return any(truncation_indicators)
 
     def _build_prompt(self, tweet: ScrapedTweet, reply_type: str) -> str:
         """Build the reply generation prompt.
@@ -162,19 +237,7 @@ class ReplyGenerator:
         Returns:
             Complete prompt string
         """
-        # Detect if this might be a French tweet/account (2+ matches required)
-        content_lower = tweet.content.lower()
-        french_matches = sum(1 for word in FRENCH_INDICATORS if word in content_lower)
-        is_french_tweet = french_matches >= 2
-
-        # Adjust instructions for French tweets
-        language_note = ""
-        if is_french_tweet and reply_type != "french":
-            language_note = "\n**NOTE: This tweet is in French. Consider replying in French if natural.**"
-        elif reply_type == "french":
-            language_note = "\n**REPLY IN FRENCH. Use natural slang (mec, ptn, mdr). Short and punchy.**"
-
-        return f"""you're maxime. 19yo french dev from bordeaux. you build stuff with AI, next.js, typescript.
+        return f"""you're maxime. 19yo dev from bordeaux. you build stuff with AI, next.js, typescript.
 
 ## YOUR TOP-PERFORMING REPLY PATTERNS (from your actual data):
 
@@ -192,10 +255,6 @@ class ReplyGenerator:
 - "HTML fr" → 804 impressions (calling HTML a programming language)
 - "meetings are the real tech debt"
 
-**FRENCH** (for French accounts - VERY high engagement):
-- "mon rêve j'ai trop hâte" → 2847 impressions
-- "ptn mec linkedin s'y met aussi c'est terrible" → 422 impressions
-
 **VALUE ADD** (genuine perspective):
 - "I mean, you still need to add some additional value to AI's power..." → 879 impressions
 
@@ -206,19 +265,20 @@ TWEET TO REPLY TO:
 
 reply type: {reply_type}
 {REPLY_TYPE_INSTRUCTIONS.get(reply_type, REPLY_TYPE_INSTRUCTIONS["witty"])}
-{language_note}
 
 RULES:
-- BE SHORT. 5-20 words ideal. 2-5 words often best.
+- ALWAYS REPLY IN ENGLISH
+- ALWAYS write complete sentences - never cut off mid-thought
+- BE SHORT but COMPLETE. 5-20 words ideal, but finish your thought.
 - lowercase always
 - no hashtags, no links
 - sound natural, like texting a dev friend
-- emojis: RARELY (1 in 10 replies max, only 🤣 💸 🇫🇷 😭 🤯)
+- emojis: RARELY (1 in 10 replies max, only 🤣 💸 😭 🤯)
 - contrarian > generic agreement
 - questions extend conversations
 - dry humor > try-hard jokes
 
-OUTPUT: just the reply text, nothing else."""
+OUTPUT: just the reply text, nothing else. Make sure it's a COMPLETE thought."""
 
     def _clean_reply(self, text: str) -> str:
         """Clean up LLM output.
