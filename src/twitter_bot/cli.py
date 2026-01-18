@@ -18,7 +18,13 @@ from twitter_bot.exceptions import (
     SourceError,
     TwitterAPIError,
 )
-from twitter_bot.generation import GeminiProvider, GroqProvider, OpenAIProvider, TweetGenerator
+from twitter_bot.generation import (
+    FallbackProvider,
+    GeminiProvider,
+    GroqProvider,
+    OpenAIProvider,
+    TweetGenerator,
+)
 from twitter_bot.sources import WebExtractor, YouTubeExtractor
 from twitter_bot.state import StateManager
 from twitter_bot.state.manager import RepliedTweet
@@ -70,19 +76,35 @@ def get_config(config_path: Path | None = None) -> Settings:
 
 
 def get_llm_provider(settings: Settings):
-    """Get the LLM provider based on available API keys."""
+    """Get the LLM provider with automatic fallback on rate limits.
+
+    Priority: Groq (fast, free) -> Gemini (generous limits) -> OpenAI
+    """
+    providers: list[tuple[str, object]] = []
+
     if settings.groq_api_key:
-        return GroqProvider(settings.groq_api_key)
-    elif settings.openai_api_key:
-        return OpenAIProvider(settings.openai_api_key)
-    elif settings.gemini_api_key:
-        return GeminiProvider(settings.gemini_api_key)
-    else:
+        providers.append(("Groq", GroqProvider(settings.groq_api_key)))
+    if settings.gemini_api_key:
+        providers.append(("Gemini", GeminiProvider(settings.gemini_api_key)))
+    if settings.openai_api_key:
+        providers.append(("OpenAI", OpenAIProvider(settings.openai_api_key)))
+
+    if not providers:
         console.print(
             "[red]Error:[/red] No LLM API key configured "
-            "(GROQ_API_KEY, OPENAI_API_KEY or GEMINI_API_KEY)"
+            "(GROQ_API_KEY, GEMINI_API_KEY or OPENAI_API_KEY)"
         )
         raise typer.Exit(EXIT_CONFIG_ERROR)
+
+    # Single provider - use directly
+    if len(providers) == 1:
+        return providers[0][1]
+
+    # Multiple providers - use fallback chain
+    console.print(
+        f"[dim]LLM fallback chain: {' -> '.join(name for name, _ in providers)}[/dim]"
+    )
+    return FallbackProvider(providers)
 
 
 def version_callback(value: bool) -> None:
