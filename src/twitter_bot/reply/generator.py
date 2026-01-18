@@ -11,17 +11,31 @@ logger = logging.getLogger(__name__)
 
 # Non-English language indicators for filtering out non-English tweets
 # We only want to reply to English tweets
+# These are common words that strongly indicate non-English content
 NON_ENGLISH_INDICATORS = [
-    # French
+    # French - common words and phrases
     'mec', 'mdr', 'ptdr', 'ptn', 'trop', "c'est", "j'ai", 'vraiment',
-    'quoi', 'comme', 'très', 'alors', 'mais', 'putain', 'grave', 'tkt',
+    'quoi', 'très', 'alors', 'putain', 'grave', 'tkt', 'cette',
     'merci', 'bonjour', 'salut', 'pourquoi', 'parce', 'avoir', 'être',
+    'les ', 'des ', 'une ', 'pour ', 'avec ', 'dans ', 'sur ', 'qui ',
+    'que ', 'est ', 'sont ', 'ont ', 'pas ', 'plus ', 'fait ',
+    'entre', 'même', 'aussi', 'tout', 'bien', 'gens', 'faire',
+    'peut', 'deux', 'leur', 'notre', 'votre', 'cette', 'celui',
+    'après', 'avant', 'encore', 'toujours', 'jamais', 'rien',
+    'fermes', 'années', 'heure', 'problème', 'gauche', 'droite',
+    'utilise', 'argent', 'gagne', 'plupart', 'audace', 'approbation',
+    'résume', 'parfaitement', 'automatiser', 'colmater', 'fuites',
+    'natalité', 'europe', 'chine', 'diffusions', 'simultanées',
+    'rapportent', 'appareil', 'installations', 'publicité', 'produits',
     # Spanish
     'está', 'qué', 'esto', 'porque', 'también', 'gracias', 'hola',
+    'para', 'como', 'pero', 'más', 'este', 'cuando', 'todo',
     # German
-    'nicht', 'auch', 'sind', 'wenn', 'haben', 'werden',
+    'nicht', 'auch', 'sind', 'wenn', 'haben', 'werden', 'diese',
+    'kann', 'wird', 'gibt', 'nach', 'noch', 'über', 'sein',
     # Portuguese
     'você', 'não', 'isso', 'também', 'porque', 'obrigado',
+    'para', 'como', 'mais', 'esse', 'esta', 'pela', 'pelo',
 ]
 
 # Available reply types for rotation
@@ -118,12 +132,19 @@ class ReplyGenerator:
             True if the tweet appears to be in English
         """
         content_lower = tweet.content.lower()
+
+        # Simple substring matching - if the word appears anywhere, count it
         non_english_matches = sum(
             1 for word in NON_ENGLISH_INDICATORS
-            if f' {word} ' in f' {content_lower} ' or content_lower.startswith(f'{word} ')
+            if word in content_lower
         )
+
         # If 2+ non-English indicators found, it's likely not English
-        return non_english_matches < 2
+        if non_english_matches >= 2:
+            logger.debug(f"Detected {non_english_matches} non-English indicators in tweet")
+            return False
+
+        return True
 
     def generate_reply(self, tweet: ScrapedTweet) -> tuple[str, str] | tuple[None, None]:
         """Generate a reply for a tweet.
@@ -185,47 +206,89 @@ class ReplyGenerator:
             return True
 
         text = text.strip()
+        text_lower = text.lower()
 
-        # Check for obvious truncation patterns
-        truncation_indicators = [
-            text.endswith('-'),
-            text.endswith('...') and len(text) < 15,  # Very short with ellipsis
-            text.endswith(' the'),
-            text.endswith(' a'),
-            text.endswith(' an'),
-            text.endswith(' to'),
-            text.endswith(' is'),
-            text.endswith(' are'),
-            text.endswith(' was'),
-            text.endswith(' were'),
-            text.endswith(' have'),
-            text.endswith(' has'),
-            text.endswith(' will'),
-            text.endswith(' would'),
-            text.endswith(' could'),
-            text.endswith(' should'),
-            text.endswith(' can'),
-            text.endswith(' and'),
-            text.endswith(' but'),
-            text.endswith(' or'),
-            text.endswith(' of'),
-            text.endswith(' in'),
-            text.endswith(' on'),
-            text.endswith(' at'),
-            text.endswith(' for'),
-            text.endswith(' with'),
-            text.endswith(' by'),
-            text.endswith(' that'),
-            text.endswith(' this'),
-            text.endswith(' it'),
-            text.endswith(" i"),
-            text.endswith(" i'"),
-            text.endswith(" you"),
-            text.endswith(" they"),
-            text.endswith(" we"),
+        # Words/patterns that indicate incomplete sentences
+        incomplete_endings = [
+            # Articles and determiners
+            ' the', ' a', ' an', ' this', ' that', ' these', ' those',
+            # Prepositions
+            ' to', ' of', ' in', ' on', ' at', ' for', ' with', ' by',
+            ' from', ' into', ' about', ' through', ' during', ' before',
+            ' after', ' above', ' below', ' between', ' under', ' over',
+            # Conjunctions
+            ' and', ' but', ' or', ' nor', ' so', ' yet', ' because',
+            ' although', ' while', ' if', ' when', ' where', ' how',
+            # Verbs (auxiliary/modal)
+            ' is', ' are', ' was', ' were', ' be', ' been', ' being',
+            ' have', ' has', ' had', ' do', ' does', ' did',
+            ' will', ' would', ' could', ' should', ' can', ' may', ' might',
+            ' must', ' shall',
+            # Pronouns
+            ' i', ' you', ' he', ' she', ' it', ' we', ' they',
+            ' my', ' your', ' his', ' her', ' its', ' our', ' their',
+            # Adverbs that expect continuation
+            ' really', ' very', ' just', ' only', ' even', ' still',
+            ' already', ' always', ' never', ' often', ' sometimes',
+            ' definitely', ' probably', ' maybe', ' perhaps',
+            ' actually', ' basically', ' literally', ' honestly',
+            ' pretty', ' quite', ' rather', ' somewhat',
+            # Question words mid-sentence
+            ' what', ' why', ' who', ' which', ' whose',
+            # Other incomplete patterns
+            " i'", " it'", " that'", " what'", " who'",
+            ' not', ' no', ' so', ' as', ' like', ' than',
         ]
 
-        return any(truncation_indicators)
+        # Check for endings that indicate truncation
+        for ending in incomplete_endings:
+            if text_lower.endswith(ending):
+                return True
+
+        # Check for cut-off mid-word (ends with hyphen or partial word)
+        if text.endswith('-'):
+            return True
+
+        # Check for very short ellipsis
+        if text.endswith('...') and len(text) < 20:
+            return True
+
+        # Check if last word looks truncated (very short, no vowels, etc.)
+        words = text.split()
+        if words:
+            last_word = words[-1].rstrip('.,!?;:').lower()
+
+            # Valid short words that are complete
+            valid_short_words = {
+                'i', 'a', 'ok', 'no', 'go', 'do', 'so', 'up', 'it', 'is', 'as', 'at',
+                'be', 'by', 'he', 'if', 'in', 'me', 'my', 'of', 'on', 'or', 'to', 'us',
+                'we', 'an', 'am', 'oh', 'hi', 'yo', 'lol', 'omg', 'wow', 'yes', 'yep',
+                'nah', 'nope', 'too', 'now', 'new', 'old', 'big', 'bad', 'hot', 'top',
+                'low', 'out', 'off', 'own', 'way', 'day', 'guy', 'man', 'got', 'get',
+                'let', 'set', 'put', 'run', 'try', 'use', 'see', 'say', 'ask', 'add',
+                'end', 'win', 'ago', 'due', 'via', 'per', 'pro', 'con', 'dev', 'api',
+                'app', 'web', 'css', 'sql', 'llm', 'gpu', 'cpu', 'ram', 'ssd', 'hdd',
+            }
+
+            # If last word is 1-3 chars and not a valid short word, likely truncated
+            if len(last_word) <= 3 and last_word not in valid_short_words:
+                return True
+
+            # Adverbs ending in -ly that usually expect continuation
+            incomplete_adverbs = [
+                'definitely', 'probably', 'basically', 'literally', 'honestly',
+                'actually', 'really', 'mostly', 'nearly', 'hardly', 'barely',
+                'only', 'just', 'early', 'lately', 'recently', 'currently',
+                'previously', 'finally', 'initially', 'especially', 'particularly',
+            ]
+            if last_word in incomplete_adverbs:
+                return True
+
+            # Check for word fragments that look cut off (no vowels = likely truncated)
+            if len(last_word) <= 4 and not any(c in last_word for c in 'aeiou'):
+                return True
+
+        return False
 
     def _build_prompt(self, tweet: ScrapedTweet, reply_type: str) -> str:
         """Build the reply generation prompt.
