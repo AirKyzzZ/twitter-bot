@@ -59,7 +59,7 @@ class TimelineWatcher:
         # Use data-testid attributes (more stable than classes)
         tweet_elements = await self.browser.page.query_selector_all('[data-testid="tweet"]')
 
-        for el in tweet_elements[:20]:  # Limit to 20 per scrape
+        for el in tweet_elements[:30]:  # Limit to 30 per scrape for better candidate pool
             try:
                 tweet = await self._parse_tweet_element(el)
                 if tweet and tweet.tweet_id not in self.seen_tweet_ids:

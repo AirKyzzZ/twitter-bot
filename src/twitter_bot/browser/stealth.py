@@ -181,3 +181,75 @@ class StealthBrowser:
         if self.page:
             await self.page.reload(wait_until="domcontentloaded")
             await self.random_delay(2, 4)
+
+    async def wait_for_selector(
+        self, selector: str, timeout: int = 10000
+    ) -> bool:
+        """Wait for an element to appear on the page.
+
+        Args:
+            selector: CSS selector to wait for
+            timeout: Maximum wait time in milliseconds
+
+        Returns:
+            True if element found, False otherwise
+        """
+        if not self.page:
+            return False
+        try:
+            await self.page.wait_for_selector(selector, timeout=timeout)
+            return True
+        except Exception:
+            return False
+
+    async def click(self, selector: str) -> bool:
+        """Click an element with human-like delay.
+
+        Args:
+            selector: CSS selector to click
+
+        Returns:
+            True if click succeeded, False otherwise
+        """
+        if not self.page:
+            return False
+        try:
+            element = await self.page.wait_for_selector(selector, timeout=5000)
+            if element:
+                await self.random_delay(0.2, 0.5)
+                await element.click()
+                await self.random_delay(0.3, 0.8)
+                return True
+            return False
+        except Exception as e:
+            logger.warning(f"Failed to click {selector}: {e}")
+            return False
+
+    async def type_like_human(self, selector: str, text: str) -> bool:
+        """Type text with variable keystroke delays to simulate human typing.
+
+        Args:
+            selector: CSS selector for the input element
+            text: Text to type
+
+        Returns:
+            True if typing succeeded, False otherwise
+        """
+        if not self.page:
+            return False
+        try:
+            element = await self.page.wait_for_selector(selector, timeout=5000)
+            if not element:
+                return False
+
+            await element.click()
+            await self.random_delay(0.2, 0.4)
+
+            for char in text:
+                await element.type(char, delay=random.randint(30, 120))
+
+            await self.random_delay(0.3, 0.6)
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to type in {selector}: {e}")
+            return False

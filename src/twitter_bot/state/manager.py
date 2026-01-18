@@ -32,6 +32,7 @@ class RepliedTweet:
     reply_content: str
     reply_type: str  # witty, agree_twist, hot_take, one_liner, flex
     replied_at: str  # ISO format
+    posting_method: str = "api"  # "api" or "browser"
 
 
 @dataclass
@@ -48,6 +49,7 @@ class State:
     replied_tweet_ids: set[str] = field(default_factory=set)
     reply_type_history: list[str] = field(default_factory=list)  # For rotation
     last_reply_at: str | None = None
+    posting_method_history: list[str] = field(default_factory=list)  # "api" or "browser"
 
 
 class StateManager:
@@ -87,6 +89,7 @@ class StateManager:
                 replied_tweet_ids=set(data.get("replied_tweet_ids", [])),
                 reply_type_history=data.get("reply_type_history", []),
                 last_reply_at=data.get("last_reply_at"),
+                posting_method_history=data.get("posting_method_history", []),
             )
             return self._state
         except json.JSONDecodeError as e:
@@ -127,12 +130,14 @@ class StateManager:
                     "reply_content": r.reply_content,
                     "reply_type": r.reply_type,
                     "replied_at": r.replied_at,
+                    "posting_method": r.posting_method,
                 }
                 for r in self._state.replied_tweets
             ],
             "replied_tweet_ids": list(self._state.replied_tweet_ids),
             "reply_type_history": self._state.reply_type_history,
             "last_reply_at": self._state.last_reply_at,
+            "posting_method_history": self._state.posting_method_history,
         }
 
         try:
@@ -325,3 +330,60 @@ class StateManager:
         """Get the most recent replies."""
         state = self.load()
         return state.replied_tweets[-limit:]
+
+    def should_use_browser(self, ratio: float = 0.2) -> bool:
+        """Determine if browser should be used for posting with anti-streak logic.
+
+        Uses the target ratio but prevents long streaks of same method
+        to appear more natural.
+
+        Args:
+            ratio: Target ratio of browser posts (0.2 = 20%)
+
+        Returns:
+            True if browser should be used, False for API
+        """
+        import random
+
+        state = self.load()
+        history = state.posting_method_history
+
+        # No history - use random with target ratio
+        if not history:
+            return random.random() < ratio
+
+        # Anti-streak logic: prevent more than 5 consecutive same-method posts
+        recent = history[-5:]
+        if all(m == "api" for m in recent):
+            # Force browser after 5 consecutive API posts
+            return True
+        if all(m == "browser" for m in recent):
+            # Force API after 5 consecutive browser posts
+            return False
+
+        # Check last 20 posts to maintain target ratio
+        window = history[-20:] if len(history) >= 20 else history
+        browser_count = sum(1 for m in window if m == "browser")
+        actual_ratio = browser_count / len(window) if window else 0
+
+        # Adjust probability based on how far off we are from target
+        if actual_ratio < ratio:
+            # Under target - increase browser probability
+            adjusted = min(0.5, ratio + (ratio - actual_ratio))
+        else:
+            # Over target - decrease browser probability
+            adjusted = max(0.05, ratio - (actual_ratio - ratio))
+
+        return random.random() < adjusted
+
+    def record_posting_method(self, method: str) -> None:
+        """Record the posting method used for a reply.
+
+        Args:
+            method: "api" or "browser"
+        """
+        state = self.load()
+        state.posting_method_history.append(method)
+        # Keep only last 100 entries
+        state.posting_method_history = state.posting_method_history[-100:]
+        self.save()

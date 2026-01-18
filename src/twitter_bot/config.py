@@ -61,6 +61,8 @@ class ReplyConfig(BaseModel):
     watch_interval_seconds: int = 45  # How often to check timeline
     topics: list[str] = Field(default_factory=list)  # Override boost_topics
     cookies_path: str = "~/.twitter-bot/cookies.json"
+    browser_post_ratio: float = 0.2  # 20% of replies via browser
+    fallback_to_api: bool = True  # Fallback to API if browser fails
 
 
 class PosterConfig(BaseModel):

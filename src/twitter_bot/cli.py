@@ -868,7 +868,7 @@ def reply_watch(
 
 async def _watch_and_reply(settings: Settings, headless: bool, dry_run: bool) -> None:
     """Async watch loop for reply bot."""
-    from twitter_bot.browser import StealthBrowser, TimelineWatcher
+    from twitter_bot.browser import BrowserReplyPoster, StealthBrowser, TimelineWatcher
     from twitter_bot.reply import ReplyGenerator, TweetScorer
 
     state_manager = StateManager(settings.state_file)
@@ -930,32 +930,66 @@ async def _watch_and_reply(settings: Settings, headless: bool, dry_run: bool) ->
                 console.print("[yellow]DRY RUN - not posting[/yellow]")
                 return
 
-            # Post reply via API
-            try:
-                with TwitterClient(
-                    api_key=settings.twitter.api_key,
-                    api_secret=settings.twitter.api_secret,
-                    access_token=settings.twitter.access_token,
-                    access_secret=settings.twitter.access_secret,
-                ) as client:
-                    result = client.post_reply(reply_text, best_tweet.tweet_id)
-                    console.print(f"[green]Posted![/green] Tweet ID: {result.id}")
+            # Determine posting method (browser vs API)
+            use_browser = state_manager.should_use_browser(
+                settings.reply.browser_post_ratio
+            )
+            posting_method = "browser" if use_browser else "api"
+            console.print(f"[dim]Posting via: {posting_method}[/dim]")
 
-                    # Record the reply
-                    state_manager.record_reply(
-                        RepliedTweet(
-                            original_tweet_id=best_tweet.tweet_id,
-                            original_author=best_tweet.author_handle,
-                            original_content=best_tweet.content[:500],
-                            reply_tweet_id=result.id,
-                            reply_content=reply_text,
-                            reply_type=reply_type,
-                            replied_at=datetime.now(UTC).isoformat(),
-                        )
+            reply_tweet_id: str | None = None
+
+            if use_browser:
+                # Try browser posting first
+                poster = BrowserReplyPoster(browser)
+                success, error = await poster.post_reply(best_tweet, reply_text)
+
+                if success:
+                    console.print("[green]Posted via browser![/green]")
+                    reply_tweet_id = "browser-posted"  # Browser doesn't return ID
+                    await poster.return_to_timeline()
+                else:
+                    console.print(f"[yellow]Browser post failed: {error}[/yellow]")
+                    if settings.reply.fallback_to_api:
+                        console.print("[dim]Falling back to API...[/dim]")
+                        use_browser = False
+                        posting_method = "api"
+                    else:
+                        console.print("[red]Fallback disabled, skipping[/red]")
+                        return
+
+            if not use_browser:
+                # Post via API
+                try:
+                    with TwitterClient(
+                        api_key=settings.twitter.api_key,
+                        api_secret=settings.twitter.api_secret,
+                        access_token=settings.twitter.access_token,
+                        access_secret=settings.twitter.access_secret,
+                    ) as client:
+                        result = client.post_reply(reply_text, best_tweet.tweet_id)
+                        console.print(f"[green]Posted![/green] Tweet ID: {result.id}")
+                        reply_tweet_id = result.id
+
+                except TwitterAPIError as e:
+                    console.print(f"[red]Failed to post reply:[/red] {e}")
+                    return
+
+            # Record the reply if successful
+            if reply_tweet_id:
+                state_manager.record_reply(
+                    RepliedTweet(
+                        original_tweet_id=best_tweet.tweet_id,
+                        original_author=best_tweet.author_handle,
+                        original_content=best_tweet.content[:500],
+                        reply_tweet_id=reply_tweet_id,
+                        reply_content=reply_text,
+                        reply_type=reply_type,
+                        replied_at=datetime.now(UTC).isoformat(),
+                        posting_method=posting_method,
                     )
-
-            except TwitterAPIError as e:
-                console.print(f"[red]Failed to post reply:[/red] {e}")
+                )
+                state_manager.record_posting_method(posting_method)
 
         # Start watching
         await watcher.watch(
@@ -991,7 +1025,7 @@ def reply_once(
 
 async def _reply_once(settings: Settings, headless: bool, dry_run: bool) -> None:
     """Single reply cycle."""
-    from twitter_bot.browser import StealthBrowser, TimelineWatcher
+    from twitter_bot.browser import BrowserReplyPoster, StealthBrowser, TimelineWatcher
     from twitter_bot.reply import ReplyGenerator, TweetScorer
 
     state_manager = StateManager(settings.state_file)
@@ -1062,32 +1096,66 @@ async def _reply_once(settings: Settings, headless: bool, dry_run: bool) -> None
             console.print("[yellow]Cancelled[/yellow]")
             return
 
-        # Post
-        try:
-            with TwitterClient(
-                api_key=settings.twitter.api_key,
-                api_secret=settings.twitter.api_secret,
-                access_token=settings.twitter.access_token,
-                access_secret=settings.twitter.access_secret,
-            ) as client:
-                result = client.post_reply(reply_text, best_tweet.tweet_id)
-                console.print(f"\n[green]Posted![/green] Tweet ID: {result.id}")
+        # Determine posting method (browser vs API)
+        use_browser = state_manager.should_use_browser(
+            settings.reply.browser_post_ratio
+        )
+        posting_method = "browser" if use_browser else "api"
+        console.print(f"[dim]Posting via: {posting_method}[/dim]")
 
-                state_manager.record_reply(
-                    RepliedTweet(
-                        original_tweet_id=best_tweet.tweet_id,
-                        original_author=best_tweet.author_handle,
-                        original_content=best_tweet.content[:500],
-                        reply_tweet_id=result.id,
-                        reply_content=reply_text,
-                        reply_type=reply_type,
-                        replied_at=datetime.now(UTC).isoformat(),
-                    )
+        reply_tweet_id: str | None = None
+
+        if use_browser:
+            # Try browser posting first
+            poster = BrowserReplyPoster(browser)
+            success, error = await poster.post_reply(best_tweet, reply_text)
+
+            if success:
+                console.print("\n[green]Posted via browser![/green]")
+                reply_tweet_id = "browser-posted"
+                await poster.return_to_timeline()
+            else:
+                console.print(f"[yellow]Browser post failed: {error}[/yellow]")
+                if settings.reply.fallback_to_api:
+                    console.print("[dim]Falling back to API...[/dim]")
+                    use_browser = False
+                    posting_method = "api"
+                else:
+                    console.print("[red]Fallback disabled, aborting[/red]")
+                    return
+
+        if not use_browser:
+            # Post via API
+            try:
+                with TwitterClient(
+                    api_key=settings.twitter.api_key,
+                    api_secret=settings.twitter.api_secret,
+                    access_token=settings.twitter.access_token,
+                    access_secret=settings.twitter.access_secret,
+                ) as client:
+                    result = client.post_reply(reply_text, best_tweet.tweet_id)
+                    console.print(f"\n[green]Posted![/green] Tweet ID: {result.id}")
+                    reply_tweet_id = result.id
+
+            except TwitterAPIError as e:
+                console.print(f"[red]Failed to post:[/red] {e}")
+                raise typer.Exit(EXIT_API_ERROR) from None
+
+        # Record the reply if successful
+        if reply_tweet_id:
+            state_manager.record_reply(
+                RepliedTweet(
+                    original_tweet_id=best_tweet.tweet_id,
+                    original_author=best_tweet.author_handle,
+                    original_content=best_tweet.content[:500],
+                    reply_tweet_id=reply_tweet_id,
+                    reply_content=reply_text,
+                    reply_type=reply_type,
+                    replied_at=datetime.now(UTC).isoformat(),
+                    posting_method=posting_method,
                 )
-
-        except TwitterAPIError as e:
-            console.print(f"[red]Failed to post:[/red] {e}")
-            raise typer.Exit(EXIT_API_ERROR) from None
+            )
+            state_manager.record_posting_method(posting_method)
 
 
 @app.command(name="reply-status")

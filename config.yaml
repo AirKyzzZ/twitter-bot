@@ -214,15 +214,17 @@ schedule:
 # Reply Bot Configuration (NEW - Local execution)
 reply:
   enabled: true
-  max_per_day: 40  # 40 replies/day budget
-  min_delay_seconds: 120  # 2 min between replies
+  max_per_day: 100  # 100 replies/day budget
+  min_delay_seconds: 120  # 2 min between replies (safe spacing)
   max_delay_seconds: 300  # 5 min max
   target_min_followers: 1000
   target_max_followers: 500000
   min_engagement_score: 5
-  score_threshold: 0.6  # Min score to consider replying
+  score_threshold: 0.55  # Slightly lower to find more eligible tweets
   watch_interval_seconds: 45  # How often to check timeline
   cookies_path: "~/.twitter-bot/cookies.json"
+  browser_post_ratio: 0.2  # 20% of replies via browser (more natural)
+  fallback_to_api: true  # Fallback to API if browser fails
 
 # Poster Bot Configuration (reduced to free up API calls)
 poster:
