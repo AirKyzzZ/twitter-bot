@@ -78,14 +78,14 @@ def get_config(config_path: Path | None = None) -> Settings:
 def get_llm_provider(settings: Settings):
     """Get the LLM provider with automatic fallback on rate limits.
 
-    Priority: Groq (fast, free) -> Gemini (generous limits) -> OpenAI
+    Priority: Gemini (generous free tier) -> Groq (fast) -> OpenAI (paid fallback)
     """
     providers: list[tuple[str, object]] = []
 
-    if settings.groq_api_key:
-        providers.append(("Groq", GroqProvider(settings.groq_api_key)))
     if settings.gemini_api_key:
         providers.append(("Gemini", GeminiProvider(settings.gemini_api_key)))
+    if settings.groq_api_key:
+        providers.append(("Groq", GroqProvider(settings.groq_api_key)))
     if settings.openai_api_key:
         providers.append(("OpenAI", OpenAIProvider(settings.openai_api_key)))
 
