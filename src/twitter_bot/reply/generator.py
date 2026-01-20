@@ -177,12 +177,25 @@ class ReplyGenerator:
         if self._is_incomplete(reply):
             logger.warning(f"Reply appears incomplete: '{reply}', regenerating...")
             # Try once more with explicit completion instruction
-            result = self.provider.generate(prompt + "\n\nIMPORTANT: Write a COMPLETE sentence.", max_tokens=200)
+            result = self.provider.generate(prompt + "\n\nIMPORTANT: Write a COMPLETE sentence that ends with proper punctuation.", max_tokens=200)
             reply = self._clean_reply(result.text)
 
             # If still incomplete, skip this tweet
             if self._is_incomplete(reply):
                 logger.warning(f"Reply still incomplete after retry, skipping")
+                return None, None
+
+        # Check for generic/low quality responses and regenerate if needed
+        if self._is_generic_or_low_quality(reply, tweet):
+            logger.warning(f"Reply is generic/low quality: '{reply}', regenerating...")
+            # Try once more with explicit instruction to be more specific
+            regenerate_prompt = prompt + "\n\nIMPORTANT: Avoid generic clichés. Be SPECIFIC and add unique perspective. Don't ask obvious questions."
+            result = self.provider.generate(regenerate_prompt, max_tokens=200)
+            reply = self._clean_reply(result.text)
+
+            # Check again
+            if self._is_generic_or_low_quality(reply, tweet) or self._is_incomplete(reply):
+                logger.warning(f"Reply still low quality after retry, skipping")
                 return None, None
 
         # Validate length
@@ -238,6 +251,16 @@ class ReplyGenerator:
             # Other incomplete patterns
             " i'", " it'", " that'", " what'", " who'",
             ' not', ' no', ' so', ' as', ' like', ' than',
+            # Adjectives that expect nouns
+            ' current', ' recent', ' new', ' old', ' next', ' last',
+            ' other', ' another', ' some', ' any', ' every', ' each',
+            ' such', ' same', ' different', ' various', ' certain',
+            # Words that expect continuation
+            ' given', ' since', ' whether', ' unless', ' until',
+            ' without', ' within', ' despite', ' although', ' whereas',
+            ' whenever', ' wherever', ' however', ' whatever', ' whoever',
+            # Common mid-sentence cuts
+            ' missing', ' lacking', ' needing', ' wanting', ' waiting',
         ]
 
         # Check for endings that indicate truncation
@@ -290,6 +313,101 @@ class ReplyGenerator:
 
         return False
 
+    def _is_generic_or_low_quality(self, text: str, tweet: ScrapedTweet) -> bool:
+        """Check if a reply is too generic, cliché, or low quality.
+
+        Args:
+            text: The reply text to check
+            tweet: The original tweet for context
+
+        Returns:
+            True if the reply is generic or low quality
+        """
+        text_lower = text.lower().strip()
+
+        # Generic clichés that don't add value
+        # NOTE: Contrarian takes like "money can't buy happiness" are OK - they're polarizing
+        generic_phrases = [
+            # Overused platitudes (non-polarizing ones)
+            "at the end of the day",
+            "it is what it is",
+            "time will tell",
+            "only time will tell",
+            "food for thought",
+            "think outside the box",
+            "game changer",  # unless it's ironic
+            "this changes everything",
+            "the future is now",
+            "wake up call",
+            "tip of the iceberg",
+            # Vague non-committal responses
+            "interesting point",
+            "good point",
+            "fair point",
+            "valid point",
+            "that's interesting",
+            "that's cool",
+            "that's nice",
+            "makes sense",
+            "i agree",
+            "totally agree",
+            "couldn't agree more",
+            # Empty questions when the context is obvious
+            "what do you mean",
+            "can you explain",
+            "what's the reason",
+            "why is that",
+            "how so",
+        ]
+
+        for phrase in generic_phrases:
+            if phrase in text_lower:
+                logger.debug(f"Reply contains generic phrase: '{phrase}'")
+                return True
+
+        # Check for obvious questions where the answer is in the original tweet
+        # e.g., asking "what's the reason?" when the tweet already explains it
+        if "?" in text and len(text) < 60:
+            question_words = ["what", "why", "how", "which", "when", "where"]
+            is_question = any(text_lower.startswith(w) or f" {w}" in text_lower for w in question_words)
+
+            if is_question:
+                # Check if tweet already provides context that makes the question obvious
+                tweet_lower = tweet.content.lower()
+                obvious_context_signals = [
+                    "don't",
+                    "never",
+                    "warning",
+                    "important",
+                    "because",
+                    "reason",
+                    "why",
+                    "since",
+                    "due to",
+                ]
+                has_obvious_context = any(signal in tweet_lower for signal in obvious_context_signals)
+
+                if has_obvious_context and len(tweet.content) > 50:
+                    # Tweet has substantial context, question might be redundant
+                    logger.debug("Reply asks question when tweet already provides context")
+                    return True
+
+        # Check for responses that are too short without substance
+        word_count = len(text.split())
+        if word_count <= 3:
+            # Very short is OK only if it's punchy
+            valid_short_replies = [
+                "facts", "true", "exactly", "real", "based",
+                "this", "huge", "massive", "insane", "wild",
+                "holy nerd", "html fr", "lol", "lmao",
+            ]
+            if text_lower.rstrip("!?.") not in valid_short_replies:
+                # Check if it's just agreeing without adding anything
+                if text_lower in ["yes", "yep", "yeah", "yup", "sure", "ok", "okay"]:
+                    return True
+
+        return False
+
     def _build_prompt(self, tweet: ScrapedTweet, reply_type: str) -> str:
         """Build the reply generation prompt.
 
@@ -332,16 +450,27 @@ reply type: {reply_type}
 RULES:
 - ALWAYS REPLY IN ENGLISH
 - ALWAYS write complete sentences - never cut off mid-thought
-- BE SHORT but COMPLETE. 5-20 words ideal, but finish your thought.
+- BE SHORT but COMPLETE. 5-20 words ideal, but FINISH your thought with proper punctuation.
 - lowercase always
 - no hashtags, no links
 - sound natural, like texting a dev friend
 - emojis: RARELY (1 in 10 replies max, only 🤣 💸 😭 🤯)
 - contrarian > generic agreement
-- questions extend conversations
+- questions extend conversations BUT never ask obvious questions where the answer is clear from the tweet
 - dry humor > try-hard jokes
 
-OUTPUT: just the reply text, nothing else. Make sure it's a COMPLETE thought."""
+WHAT WORKS WELL:
+- Specific technical curiosity: "i'm curious to see how they handle context switching and memory decay over time"
+- Witty skepticism: "they're making hardware now or just a fancy paperweight"
+- Polarizing/contrarian takes that spark discussion (even simple ones like "money can't buy happiness")
+
+AVOID THESE (they perform TERRIBLY):
+- Generic non-polarizing clichés like "at the end of the day", "it is what it is"
+- Vague agreement like "interesting point", "that's cool", "i agree"
+- Obvious questions when the tweet already explains the context
+- INCOMPLETE sentences that trail off (NEVER end mid-thought like "but how would that happen given current")
+
+OUTPUT: just the reply text, nothing else. Make sure it's a COMPLETE thought that ends properly."""
 
     def _clean_reply(self, text: str) -> str:
         """Clean up LLM output.

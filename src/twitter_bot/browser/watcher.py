@@ -404,3 +404,119 @@ class TimelineWatcher:
         except Exception as e:
             logger.debug(f"Failed to like tweet {tweet_id}: {e}")
             return False
+
+    async def quote_tweet_on_page(self, tweet_id: str, quote_text: str) -> bool:
+        """Quote tweet a post that's currently visible on the page.
+
+        Args:
+            tweet_id: The tweet ID to quote
+            quote_text: The text to add as a quote comment
+
+        Returns:
+            True if quote succeeded
+        """
+        if not self.browser.page:
+            return False
+
+        try:
+            # Find all tweets and look for the one with this ID
+            tweet_elements = await self.browser.page.query_selector_all('[data-testid="tweet"]')
+
+            for el in tweet_elements:
+                link = await el.query_selector(f'a[href*="/status/{tweet_id}"]')
+                if link:
+                    # Found the tweet, now click the retweet button to open menu
+                    retweet_btn = await el.query_selector('[data-testid="retweet"]')
+                    if not retweet_btn:
+                        logger.debug(f"No retweet button found for tweet {tweet_id}")
+                        return False
+
+                    await self.browser.random_delay(0.3, 0.6)
+                    await retweet_btn.click()
+                    await self.browser.random_delay(0.5, 1.0)
+
+                    # Click "Quote" option from the dropdown menu
+                    # The dropdown has data-testid="Dropdown" and Quote option is the second item
+                    quote_option = await self.browser.page.query_selector(
+                        '[data-testid="Dropdown"] [role="menuitem"]:nth-child(2)'
+                    )
+                    if not quote_option:
+                        # Try alternative selector for quote button
+                        quote_option = await self.browser.page.query_selector(
+                            'div[role="menuitem"] span:text-is("Quote")'
+                        )
+                    if not quote_option:
+                        # Fallback: look for any menuitem containing "Quote"
+                        menu_items = await self.browser.page.query_selector_all('[role="menuitem"]')
+                        for item in menu_items:
+                            text = await item.inner_text()
+                            if "quote" in text.lower():
+                                quote_option = item
+                                break
+
+                    if not quote_option:
+                        logger.debug(f"Could not find Quote option in dropdown for tweet {tweet_id}")
+                        # Close the dropdown by pressing Escape
+                        await self.browser.page.keyboard.press("Escape")
+                        return False
+
+                    await self.browser.random_delay(0.2, 0.5)
+                    await quote_option.click()
+                    await self.browser.random_delay(1.0, 2.0)
+
+                    # Now we should be in the quote tweet modal
+                    # Find the text input area
+                    text_input = await self.browser.page.query_selector(
+                        '[data-testid="tweetTextarea_0"]'
+                    )
+                    if not text_input:
+                        # Alternative selector
+                        text_input = await self.browser.page.query_selector(
+                            'div[role="textbox"][contenteditable="true"]'
+                        )
+
+                    if not text_input:
+                        logger.debug("Could not find text input for quote tweet")
+                        await self.browser.page.keyboard.press("Escape")
+                        return False
+
+                    # Type the quote text naturally
+                    await text_input.click()
+                    await self.browser.random_delay(0.3, 0.6)
+
+                    # Type character by character with small delays for human-like behavior
+                    for char in quote_text:
+                        await self.browser.page.keyboard.type(char, delay=30 + int(50 * (hash(char) % 100) / 100))
+
+                    await self.browser.random_delay(0.5, 1.0)
+
+                    # Click the post button
+                    post_btn = await self.browser.page.query_selector('[data-testid="tweetButton"]')
+                    if not post_btn:
+                        post_btn = await self.browser.page.query_selector(
+                            'button[data-testid="tweetButtonInline"]'
+                        )
+
+                    if not post_btn:
+                        logger.debug("Could not find post button for quote tweet")
+                        await self.browser.page.keyboard.press("Escape")
+                        return False
+
+                    await self.browser.random_delay(0.3, 0.7)
+                    await post_btn.click()
+                    await self.browser.random_delay(1.5, 2.5)
+
+                    logger.info(f"Quote tweeted {tweet_id}: {quote_text[:50]}...")
+                    return True
+
+            logger.debug(f"Could not find tweet {tweet_id} on page")
+            return False
+
+        except Exception as e:
+            logger.debug(f"Failed to quote tweet {tweet_id}: {e}")
+            # Try to close any open modals
+            try:
+                await self.browser.page.keyboard.press("Escape")
+            except Exception:
+                pass
+            return False

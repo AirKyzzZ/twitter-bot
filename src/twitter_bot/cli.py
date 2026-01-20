@@ -1270,7 +1270,10 @@ def reply_human(
     ] = False,
     like_chance: Annotated[
         float, typer.Option("--like-chance", help="Chance to like good tweets (0-1)")
-    ] = 0.3,
+    ] = 0.1,
+    quote_chance: Annotated[
+        float, typer.Option("--quote-chance", help="Chance to quote tweet high-scoring tweets (0-1)")
+    ] = 0.03,
     reply_chance: Annotated[
         float, typer.Option("--reply-chance", help="Chance to reply to qualifying tweets (0-1)")
     ] = 0.4,
@@ -1300,6 +1303,7 @@ def reply_human(
 
     console.print("[blue]Starting human-like browser mode...[/blue]")
     console.print(f"  Like chance: {like_chance:.0%}")
+    console.print(f"  Quote chance: {quote_chance:.0%}")
     console.print(f"  Reply chance: {reply_chance:.0%}")
     console.print(f"  Scroll-only chance: {scroll_only_chance:.0%}")
     console.print(f"  Headless: {headless}")
@@ -1309,7 +1313,7 @@ def reply_human(
 
     asyncio.run(_human_watch_loop(
         settings, headless, dry_run,
-        like_chance, reply_chance, scroll_only_chance
+        like_chance, quote_chance, reply_chance, scroll_only_chance
     ))
 
 
@@ -1318,6 +1322,7 @@ async def _human_watch_loop(
     headless: bool,
     dry_run: bool,
     like_chance: float,
+    quote_chance: float,
     reply_chance: float,
     scroll_only_chance: float,
 ) -> None:
@@ -1358,6 +1363,7 @@ async def _human_watch_loop(
 
         cycle_count = 0
         liked_this_session = set()
+        quoted_this_session = set()
 
         while True:
             try:
@@ -1426,6 +1432,61 @@ async def _human_watch_loop(
                             # Don't like too many in a row
                             if random.random() < 0.6:
                                 break
+
+                # Maybe quote tweet (rare - low chance)
+                if quote_chance > 0 and random.random() < quote_chance:
+                    for tweet, score in scored_tweets[:3]:
+                        if tweet.tweet_id in quoted_this_session:
+                            continue
+                        if tweet.tweet_id in state_manager.state.replied_tweet_ids:
+                            continue
+
+                        # Only quote high-scoring tweets
+                        if score < 0.5:
+                            continue
+
+                        console.print(f"\n[magenta]🔄 Considering quote tweet...[/magenta]")
+                        console.print(f"  @{tweet.author_handle}: {tweet.content[:60]}...")
+
+                        # Generate a quote comment
+                        quote_text, quote_type = generator.generate_reply(tweet)
+
+                        if quote_text is None:
+                            console.print("[yellow]Couldn't generate quote text[/yellow]")
+                            continue
+
+                        console.print(f"[green]Quote ({quote_type}):[/green] {quote_text}")
+
+                        if dry_run:
+                            console.print("[yellow]DRY RUN - not posting quote[/yellow]")
+                            break
+
+                        if await watcher.quote_tweet_on_page(tweet.tweet_id, quote_text):
+                            console.print(f"[magenta]🔄 Quote tweeted![/magenta]")
+                            quoted_this_session.add(tweet.tweet_id)
+
+                            # Record as a reply variant
+                            state_manager.record_reply(
+                                RepliedTweet(
+                                    original_tweet_id=tweet.tweet_id,
+                                    original_author=tweet.author_handle,
+                                    original_content=tweet.content[:500],
+                                    reply_tweet_id="quote-browser-posted",
+                                    reply_content=quote_text,
+                                    reply_type=f"quote_{quote_type}",
+                                    replied_at=datetime.now(UTC).isoformat(),
+                                    posting_method="browser",
+                                )
+                            )
+
+                            # Longer break after quoting
+                            break_time = random.uniform(120, 300)
+                            console.print(f"[dim]Taking a break after quote ({break_time:.0f}s)...[/dim]")
+                            await asyncio.sleep(break_time)
+                        else:
+                            console.print("[red]Quote tweet failed[/red]")
+
+                        break  # Only try one quote per cycle
 
                 # Check if we should try to reply
                 if random.random() > reply_chance:
