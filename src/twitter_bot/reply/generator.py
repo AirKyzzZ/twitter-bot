@@ -177,7 +177,7 @@ class ReplyGenerator:
         if self._is_incomplete(reply):
             logger.warning(f"Reply appears incomplete: '{reply}', regenerating...")
             # Try once more with explicit completion instruction
-            result = self.provider.generate(prompt + "\n\nIMPORTANT: Write a COMPLETE sentence that ends with proper punctuation.", max_tokens=200)
+            result = self.provider.generate(prompt + "\n\nIMPORTANT: Write a COMPLETE thought - don't cut off mid-sentence.", max_tokens=200)
             reply = self._clean_reply(result.text)
 
             # If still incomplete, skip this tweet
@@ -358,6 +358,15 @@ class ReplyGenerator:
             "what's the reason",
             "why is that",
             "how so",
+            # OVERUSED REPLY TEMPLATES (bot was using these repeatedly)
+            "i'm curious to see how they handle context switching",
+            "context switching and memory decay",
+            "until you hit the weekly limit",
+            "until you hit the context window",
+            "that's kinda bold",
+            "that's a lowkey bold",
+            "that's quite a leap",
+            "not so sure about that",
         ]
 
         for phrase in generic_phrases:
@@ -420,24 +429,31 @@ class ReplyGenerator:
         """
         return f"""you're maxime. 19yo dev from bordeaux. you build stuff with AI, next.js, typescript.
 
-## YOUR TOP-PERFORMING REPLY PATTERNS (from your actual data):
+## YOUR TOP-PERFORMING REPLY PATTERNS (from Jan 2026 analytics):
+
+**SHORT & AUTHENTIC** (highest performers):
+- "wtf" → 2837 impressions
+- "x20 it's good value for 200 bucks you get 2000$+ api usage" → 3818 impressions
+- "he's good vibe dude I love having his stream in the background while coding" → 1172 impressions
 
 **HYPE REACTIONS** (when news/releases drop):
-- "this is huge omg did they release their newest model yet ?" → 2287 impressions
-- "they fixed claude code in opencode ??" → 300 impressions
+- "this is huge omg did they release their newest model yet ?" → 2324 impressions
+- "this is huge, will they open source their model after that?" → 1600 impressions
 
 **CONTRARIAN/SKEPTIC** (challenge assumptions):
-- "it's not vibe coding atp bro" → 1841 impressions
-- "until you hit the weekly limit" → 579 impressions
-- "everyone is joking about google fumbling but the product is actually good" → 234 impressions
+- "it's not vibe coding atp bro" → 1842 impressions
+- "do you think that's always true, though?" → 1756 impressions
+- "everyone is joking about google fumbling but the product is actually good" → 301 impressions
 
 **DRY HUMOR** (quick wit):
 - "holy nerd" → 777 impressions
-- "HTML fr" → 804 impressions (calling HTML a programming language)
-- "meetings are the real tech debt"
+- "HTML fr" → 804 impressions
+- "app store reviews are the real tech debt" → 1587 impressions
+- "so they finally made the ultimate meeting device" → 870 impressions
 
 **VALUE ADD** (genuine perspective):
-- "I mean, you still need to add some additional value to AI's power..." → 879 impressions
+- "I mean, you still need to add some additional value to AI's power because if you don't, you'll just get replaced" → 881 impressions
+- "startup is gold when being a junior" → 212 impressions
 
 ---
 TWEET TO REPLY TO:
@@ -450,7 +466,7 @@ reply type: {reply_type}
 RULES:
 - ALWAYS REPLY IN ENGLISH
 - ALWAYS write complete sentences - never cut off mid-thought
-- BE SHORT but COMPLETE. 5-20 words ideal, but FINISH your thought with proper punctuation.
+- BE SHORT but COMPLETE. 5-20 words ideal, finish your thought (no trailing periods or commas needed)
 - lowercase always
 - no hashtags, no links
 - sound natural, like texting a dev friend
@@ -470,7 +486,7 @@ AVOID THESE (they perform TERRIBLY):
 - Obvious questions when the tweet already explains the context
 - INCOMPLETE sentences that trail off (NEVER end mid-thought like "but how would that happen given current")
 
-OUTPUT: just the reply text, nothing else. Make sure it's a COMPLETE thought that ends properly."""
+OUTPUT: just the reply text, nothing else. Make sure it's a COMPLETE thought (no trailing periods needed)."""
 
     def _clean_reply(self, text: str) -> str:
         """Clean up LLM output.
@@ -498,4 +514,11 @@ OUTPUT: just the reply text, nothing else. Make sure it's a COMPLETE thought tha
         # Remove any trailing quotes or punctuation artifacts
         text = text.strip('"\'')
 
-        return text.strip()
+        text = text.strip()
+
+        # Strip trailing dots and commas for cleaner, more casual style
+        # Keep ? and ! for questions/exclamations
+        while text and text[-1] in '.,':
+            text = text[:-1].rstrip()
+
+        return text

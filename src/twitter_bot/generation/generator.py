@@ -125,58 +125,60 @@ You're Maxime. 19. Bordeaux. You build stuff.
 - Work: Verana (Trust Network), 2060.io (SSI/DIDComm), Klyx (your agency)
 - Life: Co-founded PKBA (parkour club), active in GDG Bordeaux
 
-## YOUR ACTUAL TWITTER VOICE
+## YOUR ACTUAL TWITTER VOICE (Jan 2026 analytics)
 
-Based on what ACTUALLY performs (data from your top tweets):
+Based on what ACTUALLY performs (from 558 tweets analyzed):
 
 **SHORT & PUNCHY wins:**
-- "markdown files have never been more valuable" (44 impressions - 4x avg)
-- "Claude Code🐒" (58 impressions)
-- "Fun fact Claude Code is writing code for Claude Code himself 🤯" (45 impressions)
+- "markdown files have never been more valuable" (44 impressions)
+- "smart contracts are just fancy if-else statements" (21 impressions)
+- "nlp models still can't handle sarcasm" (20 impressions)
 
-**News reactions work:**
-- Quick hot takes on AI releases, tool updates, industry news
-- Add your perspective, don't just summarize
+**Replies massively outperform original tweets:**
+- Your top 25 are ALL replies, not original tweets
+- Best original tweet: 44 impressions vs best reply: 6242 impressions
+- 62% of your original tweets get <10 impressions
 
-**Personal updates with real substance:**
-- What you're actually building
-- Real numbers, real struggles, real wins
+**What works in original tweets:**
+- One-liner observations with dry humor
+- Specific tech takes (not generic "X is the future")
+- Personal experiences with real details
 
-**Dry humor/observations:**
-- Not try-hard funny, just genuine observations
-- Irony and sarcasm when natural
+## WHAT DOESN'T WORK (UPDATED Jan 2026)
 
-## WHAT DOESN'T WORK (YOUR DATA PROVES IT)
-
-These patterns average <10 impressions. NEVER use them:
-- ❌ "You're either X or Y" (72 tweets, 7.1 avg impressions - DEAD)
-- ❌ "Most people do X. The winners do Y." (46 tweets, 8.2 avg - DEAD)
-- ❌ "I've spent X hours..." (5 tweets, 7.6 avg - DEAD)
-- ❌ "Here's what I learned:" (8 tweets, 6.8 avg - DEAD)
-- ❌ Long "thought leader" threads - 0 in your top 27
+These patterns STILL average <10 impressions despite being banned:
+- ❌ "You're either X or Y" (73 tweets, 8.0 avg - DEAD)
+- ❌ "Most people/devs do X" (47 tweets, 8.9 avg - DEAD)
+- ❌ "I've spent X hours..." (11 tweets, 8.9 avg - DEAD)
+- ❌ "like it's 2010" comparisons (all <10 impressions)
+- ❌ "90% of X are Y" statistics (all <10 impressions)
+- ❌ Multi-paragraph thought pieces (171 tweets got <10 impressions)
 
 ## RULES
 
-1. **KEEP IT SHORT.** Under 140 chars is ideal. Under 80 is gold.
-2. **Be specific.** Real projects, real numbers, real experiences.
-3. **Sound like yourself.** 19yo dev, not a LinkedIn coach.
-4. **Hot takes > generic advice.** Take a stance.
-5. **No hashtags. Ever.**
-6. **Lowercase is fine.** Matches your reply style.
+1. **KEEP IT SHORT.** Under 140 chars is ideal. Under 80 is gold
+2. **Be specific.** Real projects, real numbers, real experiences
+3. **Sound like yourself.** 19yo dev texting a friend, not a LinkedIn coach
+4. **Hot takes > generic advice.** Take a stance
+5. **No hashtags. Ever**
+6. **Lowercase always.** No trailing periods or commas
+7. **Complete thoughts only.** Never cut off mid-sentence
 
-## BANNED PHRASES (automatic fail)
+## BANNED PHRASES (automatic fail - these get <10 impressions)
 
-- "You're either X or Y", "Most people do X. The winners..."
-- "I've spent X hours", "Here's what I learned"
+- "You're either X or Y", "Most people do X", "The winners..."
+- "I've spent X hours", "Here's what I learned", "I've analyzed X"
 - "game changer", "level up", "unlock", "ahead of the curve"
 - "getting left behind", "This proves that", "This kills the old way"
 - "The best part?", "But here's the catch", "Who's with me?"
 - "You're about to witness", "You're about to unlock"
+- "like it's 2010", "X% of Y are Z", "prove me wrong"
+- "What's your next move?", "What if you could"
 - Any multi-part thread structure ("1/", "Thread:", "Here's a breakdown")
 - Summarizing content like a news bot
 - Generic motivational content
 - Excessive emojis (0-1 max)
-- Starting with "Just" or "So"
+- Starting with "Just", "So", or "Are you still"
 
 ## FORMAT: {suggested_format.upper()}
    
@@ -275,6 +277,14 @@ Output ONLY the tweet text. No quotes. No explanation. No meta-commentary.""")
         # Fallback: just use character limit minus some buffer
         return truncated.strip()
 
+    def _strip_trailing_punctuation(self, text: str) -> str:
+        """Remove trailing dots and commas for a cleaner, more casual style."""
+        text = text.rstrip()
+        # Strip trailing periods and commas (but keep ? and ! for questions/exclamations)
+        while text and text[-1] in '.,':
+            text = text[:-1].rstrip()
+        return text
+
     def _parse_response(self, text: str, source_url: str | None = None) -> TweetDraft:
         """Parse LLM response into a TweetDraft, handling threads and images."""
         text = text.strip()
@@ -316,8 +326,11 @@ Output ONLY the tweet text. No quotes. No explanation. No meta-commentary.""")
             # Limit thread to 5 tweets max
             thread_parts = thread_parts[:5]
 
-            # Truncate each part at word boundary
-            thread_parts = [self._truncate_at_word_boundary(p, 280) for p in thread_parts]
+            # Truncate each part at word boundary and strip trailing punctuation
+            thread_parts = [
+                self._strip_trailing_punctuation(self._truncate_at_word_boundary(p, 280))
+                for p in thread_parts
+            ]
 
             # Main content is the first tweet
             content = thread_parts[0] if thread_parts else text
@@ -326,6 +339,9 @@ Output ONLY the tweet text. No quotes. No explanation. No meta-commentary.""")
             # Truncate at word boundary if over 280
             if len(content) > 280:
                 content = self._truncate_at_word_boundary(content, 280)
+
+        # Strip trailing dots and commas for cleaner style
+        content = self._strip_trailing_punctuation(content)
 
         return TweetDraft(
             content=content,
@@ -336,22 +352,28 @@ Output ONLY the tweet text. No quotes. No explanation. No meta-commentary.""")
         )
 
     # Overused phrases to detect and reject
-    # DATA-DRIVEN: These patterns average <10 impressions
+    # DATA-DRIVEN: These patterns average <10 impressions (updated Jan 2026)
     OVERUSED_PATTERNS = [
-        # The deadly "Binary" pattern (7.1 avg impressions across 72 tweets)
-        r"you're either .+ or",
+        # The deadly "Binary" pattern (8.0 avg impressions across 73 tweets)
+        r"you.?re either .+ or",  # Matches you're, youre, you're (curly)
+        # The "Most people" pattern (8.9 avg impressions across 47 tweets)
         r"most people .+\. the winners",
         r"most people .+\. you",
-        r"most devs .+\. the winners",
-        r"most developers .+\. the winners",
-        # The "Data Flex" pattern
+        r"most people think",
+        r"most people don't",
+        r"most devs ",
+        r"most developers ",
+        r"most frontend devs",
+        r"most backend devs",
+        # The "Data Flex" pattern (8.9 avg impressions)
         r"i've spent \d+ hours",
+        r"i spent \d+ hours",
         r"i've analyzed \d+",
         r"i analyzed \d+",
         r"here's what i learned",
         r"here's what i've learned",
         r"here's what i found",
-        # LinkedIn energy
+        # LinkedIn energy (all <15 impressions)
         r"you're about to witness",
         r"you're about to unlock",
         r"this proves that",
@@ -360,16 +382,36 @@ Output ONLY the tweet text. No quotes. No explanation. No meta-commentary.""")
         r"ahead of the curve",
         r"the best part\?",
         r"but here's the catch",
-        r"what's your next move",
+        r"what.?s your next move",  # Matches with or without "so" prefix
         r"who's with me\?",
         r"let me explain",
         r"game.?changer",
         r"level up",
         r"unlock your",
-        # Thread starters (threads don't work) - use \s* to handle leading whitespace
+        r"what if you could",
+        r"the winners know",
+        r"the winners are",
+        r"the winners,? however",
+        # Generic tech hot takes that fail (<10 impressions)
+        r"like it's 2010",
+        r"still building .+ like it's",
+        r"you're still using",
+        r"you're still building",
+        r"are you still",
+        r"90% of .+ are",
+        r"80% of .+ are",
+        r"\d+% of .+ fail",
+        r"prove me wrong",
+        # Overused question starters (anchored)
+        r"^what if you",
+        r"^so,? how do you",
+        # Thread starters (threads don't work)
         r"^\s*thread:",
         r"^\s*\d+[/.]",
         r"^\s*1\)",
+        # Generic closers
+        r"which one are you",
+        r"you're either building .+ or you're",
     ]
 
     def _is_too_similar(self, content: str, threshold: float = 0.5) -> bool:
