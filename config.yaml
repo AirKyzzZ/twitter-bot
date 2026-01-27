@@ -206,9 +206,10 @@ scoring:
     - "dating"
 
 schedule:
-  # Twitter free tier: 50 posts/day max, split between poster and reply bot
-  tweets_per_day: 40
-  active_hours: "07:00-23:00"
+  # Twitter free tier: 500 posts/month (~16/day max)
+  # DATA-DRIVEN: Concentrate posts during peak engagement hours (9h-14h Paris)
+  tweets_per_day: 15
+  active_hours: "09:00-14:00"  # Peak engagement window
   timezone: "Europe/Paris"
 
 # Reply Bot Configuration
@@ -231,8 +232,9 @@ reply:
 # Poster Bot Configuration
 # DATA-DRIVEN: Threads disabled permanently (0 threads in top 27 performers)
 # Focus on short punchy content (70% short, 30% standard)
+# API Free tier: 500 posts/month = ~16/day max
 poster:
-  max_per_day: 10  # 10 single tweets/day
+  max_per_day: 15  # Conservative limit for free tier
   allow_threads: false  # DISABLED - data shows threads don't perform
 
 # LLM Configuration

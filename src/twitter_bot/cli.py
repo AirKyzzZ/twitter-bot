@@ -1716,5 +1716,272 @@ def export_cookies(
         raise typer.Exit(EXIT_ERROR)
 
 
+# ============================================================================
+# QUOTE TWEET COMMANDS
+# ============================================================================
+
+
+@app.command(name="quote-find")
+def quote_find(
+    topic: Annotated[
+        str | None,
+        typer.Option("--topic", "-t", help="Topic to search (ai, ssi, dev, startups)")
+    ] = None,
+    count: Annotated[int, typer.Option("--count", "-n", help="Number of tweets")] = 5,
+    config_path: Annotated[Path | None, typer.Option("--config", "-c", help="Config file")] = None,
+) -> None:
+    """Find trending tweets to quote in Maxime's topics.
+    
+    DATA-DRIVEN: Quote tweets get 3.7% engagement vs 1.8% for standard tweets.
+    """
+    settings = get_config(config_path)
+    
+    if not settings.twitter.bearer_token:
+        console.print("[red]Error:[/red] TWITTER_BEARER_TOKEN required for search")
+        raise typer.Exit(EXIT_CONFIG_ERROR)
+    
+    from twitter_bot.quote import TrendingTweetFinder
+    
+    finder = TrendingTweetFinder(settings.twitter.bearer_token)
+    
+    console.print("[blue]Searching for quotable tweets...[/blue]")
+    
+    if topic:
+        tweets = finder.search_topic(topic, max_results=count)
+    else:
+        tweets = finder.find_quotable_tweets(total_max=count)
+    
+    if not tweets:
+        console.print("[yellow]No quotable tweets found[/yellow]")
+        return
+    
+    console.print(f"\n[green]Found {len(tweets)} quotable tweets:[/green]\n")
+    
+    for i, tweet in enumerate(tweets, 1):
+        console.print(f"[bold]{i}.[/bold] @{tweet.author_handle} ({tweet.author_followers:,} followers)")
+        console.print(f"   {tweet.content[:100]}...")
+        console.print(f"   [dim]❤️ {tweet.likes:,} | 🔄 {tweet.retweets:,} | 💬 {tweet.replies:,}[/dim]")
+        console.print(f"   [dim]Engagement: {tweet.engagement_score:.2f} | Recent: {tweet.is_recent}[/dim]")
+        console.print(f"   {tweet.url}")
+        console.print()
+
+
+@app.command(name="quote-draft")
+def quote_draft(
+    url: Annotated[str, typer.Argument(help="Tweet URL to quote")],
+    count: Annotated[int, typer.Option("--count", "-n", help="Number of drafts")] = 3,
+    config_path: Annotated[Path | None, typer.Option("--config", "-c", help="Config file")] = None,
+) -> None:
+    """Generate quote tweet drafts for a specific tweet."""
+    import re
+    
+    settings = get_config(config_path)
+    
+    # Extract tweet ID from URL
+    match = re.search(r"status/(\d+)", url)
+    if not match:
+        console.print("[red]Error:[/red] Invalid tweet URL")
+        raise typer.Exit(EXIT_ERROR)
+    
+    tweet_id = match.group(1)
+    
+    # Fetch tweet info
+    if not settings.twitter.bearer_token:
+        console.print("[red]Error:[/red] TWITTER_BEARER_TOKEN required")
+        raise typer.Exit(EXIT_CONFIG_ERROR)
+    
+    import tweepy
+    from twitter_bot.quote import QuoteTweetGenerator
+    from twitter_bot.quote.finder import TrendingTweet
+    
+    console.print(f"[blue]Fetching tweet {tweet_id}...[/blue]")
+    
+    try:
+        client = tweepy.Client(bearer_token=settings.twitter.bearer_token)
+        response = client.get_tweet(
+            tweet_id,
+            tweet_fields=["created_at", "public_metrics", "author_id"],
+            user_fields=["public_metrics", "username", "name"],
+            expansions=["author_id"],
+        )
+        
+        if not response.data:
+            console.print("[red]Tweet not found[/red]")
+            raise typer.Exit(EXIT_ERROR)
+        
+        tweet_data = response.data
+        users = {u.id: u for u in (response.includes.get("users", []) or [])}
+        author = users.get(tweet_data.author_id)
+        
+        metrics = tweet_data.public_metrics or {}
+        author_metrics = author.public_metrics or {} if author else {}
+        
+        tweet = TrendingTweet(
+            tweet_id=str(tweet_data.id),
+            author_handle=author.username if author else "unknown",
+            author_name=author.name if author else "Unknown",
+            author_followers=author_metrics.get("followers_count", 0),
+            content=tweet_data.text,
+            likes=metrics.get("like_count", 0),
+            retweets=metrics.get("retweet_count", 0),
+            replies=metrics.get("reply_count", 0),
+            created_at=tweet_data.created_at,
+            url=url,
+        )
+        
+    except tweepy.TweepyException as e:
+        console.print(f"[red]Error fetching tweet:[/red] {e}")
+        raise typer.Exit(EXIT_API_ERROR) from None
+    
+    console.print(f"\n[cyan]Original tweet by @{tweet.author_handle}:[/cyan]")
+    console.print(f"  {tweet.content}")
+    console.print(f"  [dim]❤️ {tweet.likes:,} | 🔄 {tweet.retweets:,}[/dim]\n")
+    
+    # Generate quote drafts
+    try:
+        provider = get_llm_provider(settings)
+        voice_profile = None
+        if settings.profile.voice_file:
+            voice_path = Path(settings.profile.voice_file).expanduser()
+            if voice_path.exists():
+                voice_profile = voice_path.read_text()
+        
+        generator = QuoteTweetGenerator(provider, voice_profile or "")
+        drafts = generator.generate_multiple(tweet, n=count)
+        
+    except LLMProviderError as e:
+        if is_rate_limit_error(e):
+            console.print(f"[yellow]Rate limited:[/yellow] {e}")
+            raise typer.Exit(EXIT_SUCCESS) from None
+        console.print(f"[red]LLM error:[/red] {e}")
+        raise typer.Exit(EXIT_API_ERROR) from None
+    
+    console.print(f"[green]Generated {len(drafts)} quote drafts:[/green]\n")
+    
+    for i, draft in enumerate(drafts, 1):
+        console.print(f"[bold]Draft {i}[/bold] [{draft.quote_type}] ({len(draft.content)} chars)")
+        console.print(f"  {draft.content}")
+        console.print()
+
+
+@app.command(name="quote-post")
+def quote_post(
+    url: Annotated[str, typer.Argument(help="Tweet URL to quote")],
+    text: Annotated[str | None, typer.Option("--text", "-t", help="Quote text (generate if not provided)")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Generate but don't post")] = False,
+    config_path: Annotated[Path | None, typer.Option("--config", "-c", help="Config file")] = None,
+) -> None:
+    """Post a quote tweet."""
+    import re
+    
+    settings = get_config(config_path)
+    
+    # Extract tweet ID from URL
+    match = re.search(r"status/(\d+)", url)
+    if not match:
+        console.print("[red]Error:[/red] Invalid tweet URL")
+        raise typer.Exit(EXIT_ERROR)
+    
+    tweet_id = match.group(1)
+    
+    if text:
+        quote_text = text
+    else:
+        # Generate quote text
+        console.print("[blue]Generating quote text...[/blue]")
+        # Use quote-draft logic to generate
+        import subprocess
+        result = subprocess.run(
+            ["uv", "run", "twitter-bot", "quote-draft", url, "-n", "1"],
+            capture_output=True,
+            text=True,
+        )
+        console.print(result.stdout)
+        console.print("[yellow]Please provide --text with your chosen quote[/yellow]")
+        return
+    
+    console.print(f"\n[green]Quote tweet:[/green] {quote_text}")
+    console.print(f"[dim]Quoting: {url}[/dim]\n")
+    
+    if dry_run:
+        console.print("[yellow]Dry run - not posting[/yellow]")
+        return
+    
+    # Post quote tweet via API
+    try:
+        with TwitterClient(
+            api_key=settings.twitter.api_key,
+            api_secret=settings.twitter.api_secret,
+            access_token=settings.twitter.access_token,
+            access_secret=settings.twitter.access_secret,
+        ) as client:
+            # Quote tweet = tweet with URL attached
+            full_text = f"{quote_text}\n\n{url}"
+            if len(full_text) > 280:
+                console.print("[red]Quote + URL exceeds 280 chars[/red]")
+                raise typer.Exit(EXIT_ERROR)
+            
+            tweet = client.post_tweet(full_text)
+            console.print(f"[green]Posted quote tweet![/green] ID: {tweet.id}")
+            
+            # Record in state
+            state_manager = StateManager(settings.state_file)
+            state_manager.record_tweet(tweet.id, quote_text, url, source_title="Quote tweet")
+            
+    except TwitterAPIError as e:
+        console.print(f"[red]Twitter API error:[/red] {e}")
+        raise typer.Exit(EXIT_API_ERROR) from None
+
+
+# ============================================================================
+# TRENDS COMMANDS  
+# ============================================================================
+
+
+@app.command(name="trends")
+def show_trends(
+    relevant_only: Annotated[
+        bool, typer.Option("--relevant", "-r", help="Show only relevant trends")
+    ] = False,
+    config_path: Annotated[Path | None, typer.Option("--config", "-c", help="Config file")] = None,
+) -> None:
+    """Show current Twitter trends and their relevance to Maxime's topics."""
+    settings = get_config(config_path)
+    
+    from twitter_bot.trends import TrendAnalyzer
+    
+    analyzer = TrendAnalyzer(settings.twitter.bearer_token)
+    
+    console.print("[blue]Fetching trends...[/blue]\n")
+    
+    if relevant_only:
+        trends = analyzer.get_relevant_trends(min_relevance=0.5, limit=10)
+        title = "Relevant Trends"
+    else:
+        trends = analyzer.get_trends()[:15]
+        title = "Current Trends"
+    
+    table = Table(title=title)
+    table.add_column("Trend", style="cyan")
+    table.add_column("Volume", justify="right")
+    table.add_column("Relevance", justify="right")
+    
+    for trend in trends:
+        volume = f"{trend.tweet_volume:,}" if trend.tweet_volume else "—"
+        relevance = f"{trend.relevance_score:.0%}" if trend.relevance_score > 0 else "—"
+        style = "green" if trend.relevance_score >= 0.5 else None
+        table.add_row(trend.name, volume, relevance, style=style)
+    
+    console.print(table)
+    
+    # Suggest topics to prioritize
+    if settings.scoring.boost_topics:
+        boosted = analyzer.suggest_topic_boost(settings.scoring.boost_topics[:10])
+        console.print("\n[bold]Suggested topic priority (trending first):[/bold]")
+        for i, topic in enumerate(boosted[:5], 1):
+            console.print(f"  {i}. {topic}")
+
+
 if __name__ == "__main__":
     app()
+

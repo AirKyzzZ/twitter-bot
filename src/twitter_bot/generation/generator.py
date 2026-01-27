@@ -112,9 +112,21 @@ class TweetGenerator:
         ]
         selected_opening = random.choice(opening_styles)
 
-        # Maxime-specific voice instructions - DATA-DRIVEN REWRITE
+        # Maxime-specific voice instructions - DATA-DRIVEN REWRITE + E.H.A FORMAT
         prompt_parts.append(f"""## OPENING STYLE FOR THIS TWEET
 **{selected_opening}**
+
+## E.H.A FRAMEWORK (Emotion + Hook + Action)
+
+Every tweet must follow E.H.A:
+1. **EMOTION**: Trigger an emotional response (awe, humor, controversy, relatability)
+2. **HOOK**: First phrase stops the scroll (bold claim, question, number, story)
+3. **ACTION**: Make it share-worthy (insight worth spreading, relatable truth)
+
+Examples of E.H.A:
+- "spent 6 hours debugging a typo" (humor + relatable + share-worthy)
+- "hot take: 90% of 'best practices' are cargo cult" (controversy + bold + discussion-worthy)
+- "shipped at 3am, woke up to 200 signups" (awe + story + inspiring)
 
 ## WHO YOU ARE
 
