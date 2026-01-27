@@ -368,7 +368,9 @@ def run(
         active_minutes = active_hours_count * 60
         # Target interval in minutes
         interval_minutes = active_minutes // settings.schedule.tweets_per_day
-        interval_minutes = max(10, interval_minutes)  # Minimum 10 mins
+        # Cap between 10-30 mins to match GitHub Actions frequency (every 30 min)
+        # This ensures we actually use all daily tweets
+        interval_minutes = max(10, min(30, interval_minutes))
 
         if state.last_run:
             last_run_dt = datetime.fromisoformat(state.last_run)
