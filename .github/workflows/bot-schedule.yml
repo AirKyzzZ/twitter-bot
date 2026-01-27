@@ -19,6 +19,7 @@ on:
           - auto
           - quote-only
           - trends-only
+          - preview
 
 jobs:
   run-bot:
@@ -68,6 +69,41 @@ jobs:
           
           echo "🕐 Current UTC hour: $HOUR"
           echo "🎯 Mode: $MODE"
+          
+          # PREVIEW MODE - Generate drafts without posting
+          if [[ "$MODE" == "preview" ]]; then
+            echo "👀 PREVIEW MODE - Generating drafts without posting..."
+            echo ""
+            echo "=== Draft Tweets with Images ===" 
+            uv run twitter-bot dry-run --count 5 2>&1 || echo "Dry-run completed"
+            echo ""
+            echo "=== Testing Unsplash API ==="
+            python3 << 'PYEOF'
+import urllib.request
+import json
+import os
+
+key = os.environ.get('UNSPLASH_ACCESS_KEY', '')
+if key:
+    queries = ["AI technology", "coding laptop", "startup"]
+    for q in queries:
+        url = f"https://api.unsplash.com/search/photos?query={q}&per_page=1"
+        req = urllib.request.Request(url, headers={'Authorization': f'Client-ID {key}'})
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read())
+                if data.get('results'):
+                    photo = data['results'][0]
+                    print(f"✅ '{q}': {photo['urls']['small']}")
+        except Exception as e:
+            print(f"❌ '{q}': {e}")
+else:
+    print("⚠️ UNSPLASH_ACCESS_KEY not set")
+PYEOF
+            echo ""
+            echo "✅ Preview complete - no tweets posted"
+            exit 0
+          fi
           
           # Quote tweet hours (10, 13, 16 UTC = 11h, 14h, 17h Paris)
           if [[ "$MODE" == "quote-only" ]] || [[ "$HOUR" == "10" || "$HOUR" == "13" || "$HOUR" == "16" ]]; then
