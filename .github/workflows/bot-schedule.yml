@@ -2,9 +2,23 @@ name: Twitter Bot Schedule
 
 on:
   schedule:
-    # Run every 30 minutes (smart scheduling handles rate limiting)
+    # Original tweets: every 30 min (smart scheduler checks peak hours 9h-14h Paris)
     - cron: "*/30 * * * *"
+    # Quote tweets: 3x per day at peak hours (10h, 13h, 16h UTC = 11h, 14h, 17h Paris)
+    - cron: "0 10,13,16 * * *"
+    # Trend check: once daily to warm up trend cache
+    - cron: "0 8 * * *"
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Run mode'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - quote-only
+          - trends-only
 
 jobs:
   run-bot:
@@ -37,21 +51,47 @@ jobs:
           TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
           TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
           TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
+          TWITTER_BEARER_TOKEN: ${{ secrets.TWITTER_BEARER_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
           # Config
           TWITTER_BOT_DATA_DIR: "./state"
         run: |
-          # Create state directory if it doesn't exist (though bot does this too)
+          # Create state directory if it doesn't exist
           mkdir -p state
-
-          # Run the bot with smart scheduling
-          # --images flag enables image attachment when LLM suggests one
-          if [ -d "assets/memes" ] && [ "$(ls -A assets/memes 2>/dev/null)" ]; then
-            uv run twitter-bot run --check-schedule --images assets/memes
-          else
-            uv run twitter-bot run --check-schedule
+          
+          # Determine run mode based on cron schedule or manual input
+          HOUR=$(date -u +%H)
+          MODE="${{ inputs.mode || 'auto' }}"
+          
+          echo "🕐 Current UTC hour: $HOUR"
+          echo "🎯 Mode: $MODE"
+          
+          # Quote tweet hours (10, 13, 16 UTC)
+          if [[ "$MODE" == "quote-only" ]] || [[ "$HOUR" == "10" || "$HOUR" == "13" || "$HOUR" == "16" ]]; then
+            echo "🔁 Running Quote Tweet finder..."
+            uv run twitter-bot quote-find --post-best --max 2 || echo "Quote tweets skipped (no good candidates)"
           fi
+          
+          # Trend cache warmup (8 UTC)
+          if [[ "$MODE" == "trends-only" ]] || [[ "$HOUR" == "08" ]]; then
+            echo "📈 Warming up trend cache..."
+            uv run twitter-bot trends --refresh || echo "Trends refresh skipped"
+          fi
+          
+          # Regular posting (every 30 min, smart scheduler decides)
+          if [[ "$MODE" == "auto" ]] && [[ "$HOUR" != "10" && "$HOUR" != "13" && "$HOUR" != "16" && "$HOUR" != "08" ]]; then
+            echo "📝 Running regular tweet cycle..."
+            if [ -d "assets/memes" ] && [ "$(ls -A assets/memes 2>/dev/null)" ]; then
+              uv run twitter-bot run --check-schedule --images assets/memes
+            else
+              uv run twitter-bot run --check-schedule
+            fi
+          fi
+          
+          echo "✅ Bot run complete"
 
       - name: Commit and Push State
         if: success()
