@@ -236,8 +236,10 @@ CRITICAL - Your new tweet must be COMPLETELY DIFFERENT:
         # Image suggestion - 40% of tweets should have images (2x algo boost!)
         image_instruction = ""
         if suggest_image:
-            # Randomly decide if this tweet should have an image
-            should_suggest_image = random.random() < 0.50  # 50% chance - half of tweets get images
+            # 50% of tweets get mandatory image prompt
+            should_suggest_image = random.random() < 0.50
+            # DEBUG: For now, always suggest image to test
+            should_suggest_image = True  # TEMP: force all tweets to have images
             if should_suggest_image:
                 image_instruction = """
 **🖼️ THIS TWEET MUST HAVE AN IMAGE** (non-negotiable):
