@@ -233,11 +233,27 @@ CRITICAL - Your new tweet must be COMPLETELY DIFFERENT:
 
         # THREADS DISABLED - no thread instructions needed
 
-        # Image suggestion
+        # Image suggestion - 40% of tweets should have images (2x algo boost!)
         image_instruction = ""
         if suggest_image:
-            image_instruction = """
-**IMAGE SUGGESTION**: If a meme or screenshot would genuinely help, add:
+            # Randomly decide if this tweet should have an image
+            should_suggest_image = random.random() < 0.40  # 40% chance
+            if should_suggest_image:
+                image_instruction = """
+**🖼️ ADD AN IMAGE TO THIS TWEET** (mandatory for this one):
+You MUST include [IMAGE: description] at the end of your tweet.
+Good image ideas for tech tweets:
+- Code screenshot showing the bug/fix
+- Terminal output
+- Meme about the topic (describe the meme format)
+- Tech aesthetic (laptop, code on screen, developer setup)
+- Graph/chart visualization
+
+Example: "debugging at 3am hits different [IMAGE: tired developer at laptop with coffee, dark room lit by screen]"
+"""
+            else:
+                image_instruction = """
+**IMAGE (optional)**: If a meme or screenshot would genuinely help, add:
 [IMAGE: brief description]
 """
 
