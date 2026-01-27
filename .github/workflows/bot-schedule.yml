@@ -69,20 +69,14 @@ jobs:
           echo "🕐 Current UTC hour: $HOUR"
           echo "🎯 Mode: $MODE"
           
-          # Quote tweet hours (10, 13, 16 UTC)
+          # Quote tweet hours (10, 13, 16 UTC = 11h, 14h, 17h Paris)
           if [[ "$MODE" == "quote-only" ]] || [[ "$HOUR" == "10" || "$HOUR" == "13" || "$HOUR" == "16" ]]; then
             echo "🔁 Running Quote Tweet finder..."
             uv run twitter-bot quote-find --post-best --max 2 || echo "Quote tweets skipped (no good candidates)"
           fi
           
-          # Trend cache warmup (8 UTC)
-          if [[ "$MODE" == "trends-only" ]] || [[ "$HOUR" == "08" ]]; then
-            echo "📈 Warming up trend cache..."
-            uv run twitter-bot trends --refresh || echo "Trends refresh skipped"
-          fi
-          
-          # Regular posting (every 30 min, smart scheduler decides)
-          if [[ "$MODE" == "auto" ]] && [[ "$HOUR" != "10" && "$HOUR" != "13" && "$HOUR" != "16" && "$HOUR" != "08" ]]; then
+          # Regular posting runs ALWAYS in auto mode (smart scheduler inside bot decides)
+          if [[ "$MODE" == "auto" ]] || [[ "$MODE" == "trends-only" ]]; then
             echo "📝 Running regular tweet cycle..."
             if [ -d "assets/memes" ] && [ "$(ls -A assets/memes 2>/dev/null)" ]; then
               uv run twitter-bot run --check-schedule --images assets/memes
