@@ -86,14 +86,34 @@ sources:
       weight: 0.9
       category: "vc"
 
+    # ========== HOT AI NEWS (for viral content) ==========
+    - url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"
+      weight: 1.0
+      category: "ai_news"
+    - url: "https://techcrunch.com/category/artificial-intelligence/feed/"
+      weight: 1.0
+      category: "ai_news"
+    - url: "https://simonwillison.net/atom/everything/"
+      weight: 1.0
+      category: "ai_tools"
+
 scoring:
   boost_topics:
-    # AI & ML
+    # AI & ML (HOT TOPICS 2026)
     - "AI"
     - "machine learning"
     - "LLM"
     - "GPT"
     - "Claude"
+    - "Claude Code"
+    - "Cursor"
+    - "Clawdbot"
+    - "Anthropic"
+    - "OpenAI"
+    - "Gemini"
+    - "AI agents"
+    - "MCP"
+    - "vibe coding"
     - "neural network"
     - "deep learning"
     - "AGI"
@@ -152,10 +172,10 @@ scoring:
     - "dating"
 
 schedule:
-  # Twitter free tier: 500 posts/month (~16/day max)
-  # DATA-DRIVEN: Concentrate posts during peak engagement hours (9h-14h Paris)
-  tweets_per_day: 15
-  active_hours: "09:00-14:00"  # Peak engagement window
+  # Twitter free tier: 500 posts/month = ~16/day
+  # MAXIME WANTS MAX VOLUME - spread across active hours
+  tweets_per_day: 16
+  active_hours: "08:00-23:00"  # Extended window for max volume
   timezone: "Europe/Paris"
 
 # Reply Bot Configuration
@@ -176,12 +196,13 @@ reply:
   fallback_to_api: true  # Fallback to API if browser fails
 
 # Poster Bot Configuration
-# DATA-DRIVEN: Threads disabled permanently (0 threads in top 27 performers)
-# Focus on short punchy content (70% short, 30% standard)
-# API Free tier: 500 posts/month = ~16/day max
+# MAXIME WANTS MAX VOLUME for growth
+# API Free tier: 500 posts/month = ~16/day
 poster:
-  max_per_day: 15  # Conservative limit for free tier
+  max_per_day: 16  # Max API limit
   allow_threads: false  # DISABLED - data shows threads don't perform
+  prefer_trending: true  # Prioritize trending topics for virality
+  include_images: true  # Always try to add images (2x algo boost)
 
 # LLM Configuration
 groq_api_key: "${GROQ_API_KEY}"
