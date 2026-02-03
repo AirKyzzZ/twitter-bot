@@ -1,13 +1,14 @@
 name: Twitter Bot Schedule
 
 on:
-  schedule:
-    # Original tweets: every 30 min (smart scheduler checks peak hours 9h-14h Paris)
-    - cron: "*/30 * * * *"
-    # Quote tweets: 3x per day at peak hours (10h, 13h, 16h UTC = 11h, 14h, 17h Paris)
-    - cron: "0 10,13,16 * * *"
-    # Trend check: once daily to warm up trend cache
-    - cron: "0 8 * * *"
+  # DISABLED - Scheduled runs commented out
+  # schedule:
+  #   # Original tweets: every 30 min (smart scheduler checks peak hours 9h-14h Paris)
+  #   - cron: "*/30 * * * *"
+  #   # Quote tweets: 3x per day at peak hours (10h, 13h, 16h UTC = 11h, 14h, 17h Paris)
+  #   - cron: "0 10,13,16 * * *"
+  #   # Trend check: once daily to warm up trend cache
+  #   - cron: "0 8 * * *"
   workflow_dispatch:
     inputs:
       mode:
